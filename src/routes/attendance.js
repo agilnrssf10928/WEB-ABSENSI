@@ -1,5 +1,5 @@
 const { db } = require('../db');
-const { calculateDistance, saveBase64Image, getNowFormatted, evaluateStatus } = require('../utils');
+const { calculateDistance, getNowFormatted, evaluateStatus } = require('../utils');
 
 function handleAttendanceRoutes(req, res, url, user) {
   // GET /api/attendance/today (Untuk semua pengguna: Siswa, Guru, dan Admin)
@@ -133,7 +133,7 @@ function handleAttendanceRoutes(req, res, url, user) {
           INSERT INTO attendances (user_id, date, clock_in, status, lat_in, lng_in, distance_in, notes)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `);
-        const result = stmt.run(user.id, now.date, now.time, status, lat, lng, distance, 'Presensi via Scan QR Gerbang Sekolah');
+        const result = stmt.run(user.id, now.date, now.time, status, lat ?? null, lng ?? null, distance, 'Presensi via Scan QR Gerbang Sekolah');
         const saved = db.prepare('SELECT * FROM attendances WHERE id = ?').get(result.lastInsertRowid);
 
         return res.json({
@@ -154,7 +154,7 @@ function handleAttendanceRoutes(req, res, url, user) {
           UPDATE attendances
           SET clock_out = ?, lat_out = ?, lng_out = ?, distance_out = ?, notes = notes || ' | Pulang via QR Gerbang'
           WHERE id = ?
-        `).run(now.time, lat, lng, distanceOut, existing.id);
+        `).run(now.time, lat ?? null, lng ?? null, distanceOut, existing.id);
 
         const updated = db.prepare('SELECT * FROM attendances WHERE id = ?').get(existing.id);
 
@@ -170,126 +170,6 @@ function handleAttendanceRoutes(req, res, url, user) {
     }
 
     return res.json({ error: 'Format QR Code tidak dikenali oleh sistem sekolah.' }, 400);
-  }
-
-  // POST /api/attendance/clock-in (Untuk SEMUA pengguna termasuk Admin/Kepala Sekolah, Guru, dan Siswa)
-  if (req.method === 'POST' && url.pathname === '/api/attendance/clock-in') {
-    if (!user) return res.json({ error: 'Unauthorized' }, 401);
-
-    const now = getNowFormatted();
-    const existing = db.prepare('SELECT id FROM attendances WHERE user_id = ? AND date = ?').get(user.id, now.date);
-    if (existing) {
-      return res.json({ error: 'Anda sudah melakukan absen masuk hari ini.' }, 400);
-    }
-
-    const { photo, lat, lng, notes = '', address = '' } = req.body || {};
-    const settings = db.prepare('SELECT * FROM settings WHERE id = 1').get();
-
-    // Hitung jarak ke titik gerbang sekolah
-    let distance = null;
-    if (lat != null && lng != null && settings.office_lat != null && settings.office_lng != null) {
-      distance = calculateDistance(Number(lat), Number(lng), settings.office_lat, settings.office_lng);
-    }
-
-    // Validasi radius jika diaktifkan
-    if (settings.enable_radius_restriction && distance !== null) {
-      if (distance > settings.office_radius_meters) {
-        return res.json({
-          error: `Posisi Anda di luar radius sekolah! Jarak: ${distance} meter (Maksimal diperbolehkan: ${settings.office_radius_meters} meter dari gerbang sekolah). Harap berada di area sekolah.`
-        }, 400);
-      }
-    }
-
-    // Simpan foto selfie
-    let photoUrl = null;
-    if (photo) {
-      photoUrl = saveBase64Image(photo, 'selfies');
-    }
-
-    // Evaluasi status keterlambatan (Jam masuk sekolah standar: 07:00, toleransi s/d 07:15)
-    const status = evaluateStatus(now.timeMinutes, settings.work_start_time, settings.late_tolerance_minutes);
-
-    const stmt = db.prepare(`
-      INSERT INTO attendances (
-        user_id, date, clock_in, status, photo_in, lat_in, lng_in, distance_in, address_in, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const result = stmt.run(
-      user.id,
-      now.date,
-      now.time,
-      status,
-      photoUrl,
-      lat ? Number(lat) : null,
-      lng ? Number(lng) : null,
-      distance,
-      address,
-      notes
-    );
-
-    const saved = db.prepare('SELECT * FROM attendances WHERE id = ?').get(result.lastInsertRowid);
-
-    return res.json({
-      success: true,
-      message: status === 'late'
-        ? `Absen masuk berhasil (Status: Terlambat pada jam ${now.time})`
-        : `Absen masuk berhasil (Tepat Waktu pada jam ${now.time})`,
-      attendance: saved
-    });
-  }
-
-  // POST /api/attendance/clock-out (Untuk SEMUA pengguna)
-  if (req.method === 'POST' && url.pathname === '/api/attendance/clock-out') {
-    if (!user) return res.json({ error: 'Unauthorized' }, 401);
-
-    const now = getNowFormatted();
-    const existing = db.prepare('SELECT * FROM attendances WHERE user_id = ? AND date = ?').get(user.id, now.date);
-    if (!existing) {
-      return res.json({ error: 'Anda belum melakukan absen masuk hari ini.' }, 400);
-    }
-
-    if (existing.clock_out) {
-      return res.json({ error: 'Anda sudah melakukan absen pulang hari ini.' }, 400);
-    }
-
-    const { photo, lat, lng, notes = '', address = '' } = req.body || {};
-    const settings = db.prepare('SELECT * FROM settings WHERE id = 1').get();
-
-    let distance = null;
-    if (lat != null && lng != null && settings.office_lat != null && settings.office_lng != null) {
-      distance = calculateDistance(Number(lat), Number(lng), settings.office_lat, settings.office_lng);
-    }
-
-    let photoUrl = null;
-    if (photo) {
-      photoUrl = saveBase64Image(photo, 'selfies');
-    }
-
-    const mergedNotes = existing.notes ? `${existing.notes} | Pulang: ${notes}` : notes;
-
-    db.prepare(`
-      UPDATE attendances
-      SET clock_out = ?, photo_out = ?, lat_out = ?, lng_out = ?, distance_out = ?, address_out = ?, notes = ?
-      WHERE id = ?
-    `).run(
-      now.time,
-      photoUrl,
-      lat ? Number(lat) : null,
-      lng ? Number(lng) : null,
-      distance,
-      address,
-      mergedNotes,
-      existing.id
-    );
-
-    const updated = db.prepare('SELECT * FROM attendances WHERE id = ?').get(existing.id);
-
-    return res.json({
-      success: true,
-      message: `Absen pulang sekolah berhasil tercatat pada jam ${now.time}. Hati-hati di jalan!`,
-      attendance: updated
-    });
   }
 
   // GET /api/attendance/history (Riwayat pribadi)

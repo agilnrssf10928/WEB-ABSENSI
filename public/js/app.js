@@ -115,7 +115,6 @@ async function checkAuth() {
 }
 
 function showLoginView() {
-  stopCamera();
   stopQrScanner();
   state.currentUser = null;
   document.getElementById('main-header').classList.add('hidden');
@@ -164,15 +163,6 @@ async function loadSettings() {
     console.error('Gagal memuat pengaturan:', err);
   }
 }
-
-// Quick Demo Login (School accounts)
-document.querySelectorAll('.btn-quick-login').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.getElementById('login-email').value = btn.dataset.email;
-    document.getElementById('login-password').value = btn.dataset.pass;
-    document.getElementById('form-login').dispatchEvent(new Event('submit'));
-  });
-});
 
 // Form Login Submit
 document.getElementById('form-login').addEventListener('submit', async e => {
@@ -282,7 +272,7 @@ function switchEmployeeTab(tabName) {
   document.getElementById('panel-emp-qr').classList.toggle('hidden', tabName !== 'qr');
 
   if (tabName === 'qr') {
-    stopCamera();
+    stopQrScanner();
     renderMyQrCode();
     renderSchoolQrCode();
   } else {
@@ -290,12 +280,9 @@ function switchEmployeeTab(tabName) {
   }
 
   if (tabName === 'clock') {
-    startCamera();
     initGeolocation();
     loadTodayAttendance();
     if (state.maps.emp) setTimeout(() => state.maps.emp.invalidateSize(), 300);
-  } else {
-    stopCamera();
   }
 
   if (tabName === 'history') loadEmployeeHistory();
@@ -325,21 +312,13 @@ async function loadTodayAttendance() {
     const settings = data.settings || state.officeSettings;
     state.officeSettings = settings;
 
-    // Reset button states
-    const btnClockIn = document.getElementById('btn-clock-in');
-    const btnClockOut = document.getElementById('btn-clock-out');
-    const boxCompleted = document.getElementById('box-clock-completed');
+    // Status badge presensi (absen hanya via QR)
     const statusBadge = document.getElementById('today-status-badge');
-
-    btnClockIn.classList.add('hidden');
-    btnClockOut.classList.add('hidden');
-    boxCompleted.classList.add('hidden');
 
     if (!att) {
       // Belum absen masuk
       statusBadge.className = 'px-4 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 flex items-center space-x-2';
-      statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500"></span><span>Belum Absen Masuk Sekolah</span>`;
-      btnClockIn.classList.remove('hidden');
+      statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500"></span><span>Belum Absen — Scan QR di Tab QR</span>`;
 
       document.getElementById('val-clock-in').textContent = '--:--:--';
       document.getElementById('val-clock-out').textContent = '--:--:--';
@@ -353,7 +332,6 @@ async function loadTodayAttendance() {
 
       document.getElementById('val-clock-in').textContent = att.clock_in;
       document.getElementById('val-clock-out').textContent = '--:--:--';
-      btnClockOut.classList.remove('hidden');
     } else if (att.clock_in && att.clock_out) {
       // Sudah lengkap
       statusBadge.className = 'px-4 py-1.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 flex items-center space-x-2';
@@ -361,7 +339,6 @@ async function loadTodayAttendance() {
 
       document.getElementById('val-clock-in').textContent = att.clock_in;
       document.getElementById('val-clock-out').textContent = att.clock_out;
-      boxCompleted.classList.remove('hidden');
     }
 
     if (settings) {
@@ -374,103 +351,6 @@ async function loadTodayAttendance() {
     console.error('Gagal mengambil status presensi:', err);
   }
 }
-
-// ========================================================
-// WEBCAM & CAMERA
-// ========================================================
-
-async function startCamera() {
-  const video = document.getElementById('camera-feed');
-  const fallbackBox = document.getElementById('camera-fallback-box');
-  const preview = document.getElementById('camera-snapshot-preview');
-  const guide = document.getElementById('camera-guide');
-  const btnRetake = document.getElementById('btn-retake-photo');
-
-  preview.classList.add('hidden');
-  guide.classList.remove('hidden');
-  btnRetake.classList.add('hidden');
-  video.classList.remove('hidden');
-  state.currentSnapshot = null;
-
-  if (state.webcamStream) {
-    stopCamera();
-  }
-
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: state.webcamFacing,
-        width: { ideal: 640 },
-        height: { ideal: 480 }
-      },
-      audio: false
-    });
-    state.webcamStream = stream;
-    video.srcObject = stream;
-    fallbackBox.classList.add('hidden');
-  } catch (err) {
-    console.warn('Webcam tidak dapat diakses:', err);
-    fallbackBox.classList.remove('hidden');
-  }
-}
-
-function stopCamera() {
-  if (state.webcamStream) {
-    state.webcamStream.getTracks().forEach(track => track.stop());
-    state.webcamStream = null;
-  }
-}
-
-function captureSnapshot() {
-  const video = document.getElementById('camera-feed');
-  const canvas = document.getElementById('camera-canvas');
-  const preview = document.getElementById('camera-snapshot-preview');
-  const guide = document.getElementById('camera-guide');
-  const btnRetake = document.getElementById('btn-retake-photo');
-
-  if (state.currentSnapshot) return state.currentSnapshot;
-
-  if (!state.webcamStream || video.videoWidth === 0) {
-    const fileInput = document.getElementById('fallback-photo-input');
-    if (fileInput.files && fileInput.files[0]) {
-      return state.currentSnapshot;
-    }
-    return null;
-  }
-
-  canvas.width = video.videoWidth || 640;
-  canvas.height = video.videoHeight || 480;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-  state.currentSnapshot = dataUrl;
-
-  video.classList.add('hidden');
-  guide.classList.add('hidden');
-  preview.src = dataUrl;
-  preview.classList.remove('hidden');
-  btnRetake.classList.remove('hidden');
-
-  return dataUrl;
-}
-
-document.getElementById('btn-retake-photo').addEventListener('click', () => {
-  startCamera();
-});
-
-document.getElementById('btn-switch-camera').addEventListener('click', () => {
-  state.webcamFacing = state.webcamFacing === 'user' ? 'environment' : 'user';
-  startCamera();
-});
-
-document.getElementById('fallback-photo-input').addEventListener('change', async e => {
-  const file = e.target.files[0];
-  if (file) {
-    state.currentSnapshot = await fileToBase64(file);
-    showToast('Foto selfie berhasil dipilih', 'success');
-  }
-});
 
 // ========================================================
 // GEOLOCATION & MAP
@@ -571,93 +451,6 @@ function renderEmployeeMap(userLat, userLng, settings) {
 
   state.maps.emp = map;
 }
-
-// ========================================================
-// CLOCK IN & CLOCK OUT ACTION
-// ========================================================
-
-document.getElementById('btn-clock-in').addEventListener('click', async () => {
-  const btn = document.getElementById('btn-clock-in');
-  let photo = captureSnapshot();
-
-  if (!photo) {
-    showToast('Harap aktifkan kamera atau unggah foto selfie verifikasi!', 'error');
-    return;
-  }
-
-  btn.disabled = true;
-  btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Memvalidasi Absen Masuk...`;
-
-  try {
-    const payload = {
-      photo,
-      lat: state.userCoords ? state.userCoords.lat : null,
-      lng: state.userCoords ? state.userCoords.lng : null,
-      notes: document.getElementById('attendance-notes').value
-    };
-
-    const res = await fetch('/api/attendance/clock-in', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await res.json();
-    if (data.success) {
-      showToast(data.message, 'success');
-      await loadTodayAttendance();
-      if (state.currentUser && state.currentUser.role === 'admin') {
-        loadAdminDashboard();
-      }
-    } else {
-      showToast(data.error || 'Absen masuk gagal', 'error');
-    }
-  } catch (err) {
-    showToast('Terjadi kesalahan saat memproses absensi', 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = `<i class="fa-solid fa-right-to-bracket text-lg"></i> <span>ABSEN MASUK SEKOLAH SEKARANG</span>`;
-  }
-});
-
-document.getElementById('btn-clock-out').addEventListener('click', async () => {
-  const btn = document.getElementById('btn-clock-out');
-  let photo = captureSnapshot();
-
-  btn.disabled = true;
-  btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Memvalidasi Absen Pulang...`;
-
-  try {
-    const payload = {
-      photo,
-      lat: state.userCoords ? state.userCoords.lat : null,
-      lng: state.userCoords ? state.userCoords.lng : null,
-      notes: document.getElementById('attendance-notes').value
-    };
-
-    const res = await fetch('/api/attendance/clock-out', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await res.json();
-    if (data.success) {
-      showToast(data.message, 'success');
-      await loadTodayAttendance();
-      if (state.currentUser && state.currentUser.role === 'admin') {
-        loadAdminDashboard();
-      }
-    } else {
-      showToast(data.error || 'Absen pulang gagal', 'error');
-    }
-  } catch (err) {
-    showToast('Terjadi kesalahan saat memproses absensi pulang', 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = `<i class="fa-solid fa-right-from-bracket text-lg"></i> <span>ABSEN PULANG SEKOLAH SEKARANG</span>`;
-  }
-});
 
 // ========================================================
 // QR ATTENDANCE ENGINE (Render QR, Scanner Kamera, Submit Scan)
@@ -817,6 +610,11 @@ document.getElementById('btn-toggle-qr-scan').addEventListener('click', () => {
   } else {
     startQrScanner();
   }
+});
+
+// Tombol di tab Absen: lompat ke tab QR
+document.getElementById('btn-go-qr-tab').addEventListener('click', () => {
+  switchEmployeeTab('qr');
 });
 
 window.addEventListener('beforeunload', () => {
@@ -987,12 +785,10 @@ function switchAdminTab(tabName) {
   if (tabName === 'myclock') {
     placeClockPanelInAdminView();
     document.getElementById('panel-emp-clock').classList.remove('hidden');
-    startCamera();
     initGeolocation();
     loadTodayAttendance();
     if (state.maps.emp) setTimeout(() => state.maps.emp.invalidateSize(), 300);
   } else {
-    stopCamera();
     stopQrScanner();
   }
 

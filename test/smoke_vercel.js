@@ -66,22 +66,27 @@ async function call(method, path, opts) {
   if (settings.statusCode !== 200 || !settings.json.settings.office_name.includes('SMK')) throw new Error('Settings gagal');
   console.log('OK  GET /api/settings ->', settings.json.settings.office_name);
 
-  // 3. Login siswa
-  const login = await call('POST', '/api/auth/login', { headers: { 'content-type': 'application/json' }, body: { email: 'budi@sekolah.sch.id', password: 'budi123' } });
+  // 3. Login admin agil
+  const login = await call('POST', '/api/auth/login', { headers: { 'content-type': 'application/json' }, body: { email: 'agil', password: '12345678' } });
   if (login.statusCode !== 200 || !login.json.success) throw new Error('Login gagal: ' + login.body);
   console.log('OK  POST /api/auth/login -> token diterima');
 
-  // 4. Clock-in dengan foto base64
-    const photo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-  const clockIn = await call('POST', '/api/attendance/clock-in', { headers: { 'content-type': 'application/json', authorization: 'Bearer ' + login.json.token }, body: { photo, lat: -6.3614144, lng: 107.0540305, notes: 'Hadir' } });
-  if (clockIn.statusCode !== 200 && !(clockIn.statusCode === 400 && clockIn.json.error.includes('sudah'))) throw new Error('Clock-in gagal: ' + clockIn.body);
-  console.log('OK  POST /api/attendance/clock-in ->', clockIn.statusCode);
+  // 4. Absen masuk via scan QR gerbang (satu-satunya jalur absen)
+  const qr = await call('GET', '/api/attendance/school-qr');
+  if (!qr.json.qr_token) throw new Error('QR gerbang gagal: ' + qr.body);
+  const scan = await call('POST', '/api/attendance/scan-qr', { headers: { 'content-type': 'application/json', authorization: 'Bearer ' + login.json.token }, body: { qr_data: qr.json.qr_token, lat: -6.3614144, lng: 107.0540305, notes: 'Scan gerbang' } });
+  if (scan.statusCode !== 200 && !(scan.statusCode === 400 && scan.json.error.includes('sudah'))) throw new Error('Scan QR gagal: ' + scan.body);
+  console.log('OK  POST /api/attendance/scan-qr ->', scan.statusCode, scan.json.action || '');
 
   // 5. Stats admin
-  const admin = await call('POST', '/api/auth/login', { headers: { 'content-type': 'application/json' }, body: { email: 'admin@sekolah.sch.id', password: 'admin123' } });
-  const stats = await call('GET', '/api/attendance/stats', { headers: { authorization: 'Bearer ' + admin.json.token } });
-  if (stats.statusCode !== 200 || stats.json.stats.totalAll <= 0) throw new Error('Stats gagal: ' + stats.body);
+  const stats = await call('GET', '/api/attendance/stats', { headers: { authorization: 'Bearer ' + login.json.token } });
+  if (stats.statusCode !== 200) throw new Error('Stats gagal: ' + stats.body);
   console.log('OK  GET /api/attendance/stats -> totalAll =', stats.json.stats.totalAll);
+
+  // 6. Pastikan jalur absen muka sudah DITUTUP (404/route tidak ada)
+  const oldClockIn = await call('POST', '/api/attendance/clock-in', { headers: { 'content-type': 'application/json', authorization: 'Bearer ' + login.json.token }, body: { photo: 'x' } });
+  if (oldClockIn.statusCode !== 404) throw new Error('Endpoint selfie seharusnya sudah dihapus, dapat: ' + oldClockIn.statusCode);
+  console.log('OK  POST /api/attendance/clock-in -> 404 (absen muka sudah dihapus)');
 
   console.log('\nSEMUA SMOKE TEST VERCEL LULUS');
 })().catch((e) => {

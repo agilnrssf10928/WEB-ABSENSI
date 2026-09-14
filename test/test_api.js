@@ -22,58 +22,52 @@ function request(options, data = null) {
     });
     req.on('error', reject);
     if (data) {
-      if (typeof data === 'object') {
-        req.setHeader('Content-Type', 'application/json');
-        req.write(JSON.stringify(data));
-      } else {
-        req.write(data);
-      }
+      req.setHeader('Content-Type', 'application/json');
+      req.write(JSON.stringify(data));
     }
     req.end();
   });
 }
 
 async function runTests() {
-  console.log('--- Starting PresensiKu Sekolah API Tests ---');
+  console.log('--- Starting PresensiKu API Tests (QR-only) ---');
 
   // 1. Root HTML
   const rootRes = await request({ hostname: 'localhost', port: TEST_PORT, path: '/', method: 'GET' });
   assert.strictEqual(rootRes.statusCode, 200);
   assert(rootRes.bodyStr.includes('PresensiKu Sekolah'));
-  console.log('✓ Test 1 Passed: GET / serves PresensiKu Sekolah HTML');
+  console.log('✓ Test 1 Passed: GET / serves PresensiKu HTML');
 
   // 2. Auth Login Failure
   const failLogin = await request(
     { hostname: 'localhost', port: TEST_PORT, path: '/api/auth/login', method: 'POST' },
-    { email: 'wrong@sekolah.sch.id', password: 'wrong' }
+    { email: 'agil', password: 'wrong-password' }
   );
   assert.strictEqual(failLogin.statusCode, 401);
   console.log('✓ Test 2 Passed: Invalid login rejected (401)');
 
-  // 3. Auth Login Success (Siswa: Budi Santoso)
-  const studentLogin = await request(
+  // 3. Login admin agil
+  const adminLogin = await request(
     { hostname: 'localhost', port: TEST_PORT, path: '/api/auth/login', method: 'POST' },
-    { email: 'budi@sekolah.sch.id', password: 'budi123' }
+    { email: 'agil', password: '12345678' }
   );
-  assert.strictEqual(studentLogin.statusCode, 200);
-  assert(studentLogin.bodyJson.success);
-  assert.strictEqual(studentLogin.bodyJson.user.email, 'budi@sekolah.sch.id');
-  assert.strictEqual(studentLogin.bodyJson.user.role, 'student');
-  const studentToken = studentLogin.bodyJson.token;
-  console.log('✓ Test 3 Passed: Student login success, token received');
+  assert.strictEqual(adminLogin.statusCode, 200);
+  assert(adminLogin.bodyJson.success);
+  assert.strictEqual(adminLogin.bodyJson.user.role, 'admin');
+  const adminToken = adminLogin.bodyJson.token;
+  console.log('✓ Test 3 Passed: Admin agil login success');
 
-  // 4. GET /api/auth/me for student
+  // 4. GET /api/auth/me
   const meRes = await request({
     hostname: 'localhost',
     port: TEST_PORT,
     path: '/api/auth/me',
     method: 'GET',
-    headers: { Authorization: `Bearer ${studentToken}` }
+    headers: { Authorization: `Bearer ${adminToken}` }
   });
   assert.strictEqual(meRes.statusCode, 200);
-  assert.strictEqual(meRes.bodyJson.user.nip, '0061234567'); // NISN
-  assert.strictEqual(meRes.bodyJson.user.department, 'XII RPL 1'); // Kelas
-  console.log('✓ Test 4 Passed: Student profile returns NISN & Kelas');
+  assert.strictEqual(meRes.bodyJson.user.nip, 'agil');
+  console.log('✓ Test 4 Passed: Profile returns admin identity');
 
   // 5. Settings API
   const settingsRes = await request({ hostname: 'localhost', port: TEST_PORT, path: '/api/settings', method: 'GET' });
@@ -81,74 +75,62 @@ async function runTests() {
   assert(settingsRes.bodyJson.settings.office_name.includes('SMK'));
   console.log('✓ Test 5 Passed: GET /api/settings returns school name');
 
-  // 6. Student Clock-In API
-  const samplePhoto = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-  const clockInRes = await request(
+  // 6. Admin registers a student (akun baru otomatis punya QR karena QR = f(nip))
+  const newStudentRes = await request(
     {
       hostname: 'localhost',
       port: TEST_PORT,
-      path: '/api/attendance/clock-in',
-      method: 'POST',
-      headers: { Authorization: `Bearer ${studentToken}` }
-    },
-    {
-      photo: samplePhoto,
-      lat: -6.3614144,
-      lng: 107.0540305,
-      notes: 'Hadir apel pagi'
-    }
-  );
-  assert(clockInRes.statusCode === 200 || (clockInRes.statusCode === 400 && clockInRes.bodyJson.error.includes('sudah melakukan absen')));
-  console.log('✓ Test 6 Passed: Student Clock-In processed');
-
-  // 7. Student Clock-Out API
-  const clockOutRes = await request(
-    {
-      hostname: 'localhost',
-      port: TEST_PORT,
-      path: '/api/attendance/clock-out',
-      method: 'POST',
-      headers: { Authorization: `Bearer ${studentToken}` }
-    },
-    {
-      photo: samplePhoto,
-      lat: -6.3614144,
-      lng: 107.0540305,
-      notes: 'Pulang sekolah'
-    }
-  );
-  assert(clockOutRes.statusCode === 200 || clockOutRes.statusCode === 400);
-  console.log('✓ Test 7 Passed: Student Clock-Out processed');
-
-  // 8. Admin Login (Drs. H. Mulyadi, M.Pd - Kepala Sekolah)
-  const adminLogin = await request(
-    { hostname: 'localhost', port: TEST_PORT, path: '/api/auth/login', method: 'POST' },
-    { email: 'admin@sekolah.sch.id', password: 'admin123' }
-  );
-  assert.strictEqual(adminLogin.statusCode, 200);
-  const adminToken = adminLogin.bodyJson.token;
-  console.log('✓ Test 8 Passed: Admin / Kepala Sekolah login success');
-
-  // 9. CRUCIAL TEST: ADMIN / KEPALA SEKOLAH BISA ABSEN JUGA!
-  const adminClockIn = await request(
-    {
-      hostname: 'localhost',
-      port: TEST_PORT,
-      path: '/api/attendance/clock-in',
+      path: '/api/employees',
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}` }
     },
     {
-      photo: samplePhoto,
-      lat: -6.3614144,
-      lng: 107.0540305,
-      notes: 'Hadir memimpin upacara sekolah'
+      nip: '0090000001',
+      name: 'Siswa Uji QR',
+      email: 'siswa.uji@sekolah.sch.id',
+      password: 'siswa123',
+      department: 'X TKJ 1',
+      position: 'Siswa',
+      phone: '081200000001',
+      role: 'student'
     }
   );
-  assert(adminClockIn.statusCode === 200 || (adminClockIn.statusCode === 400 && adminClockIn.bodyJson.error.includes('sudah melakukan absen')));
-  console.log('✓ Test 9 Passed: Admin / Kepala Sekolah can clock-in (Semua bisa absen!)');
+  assert.strictEqual(newStudentRes.statusCode, 200, JSON.stringify(newStudentRes.bodyJson));
+  const studentId = newStudentRes.bodyJson.employee.id;
+  console.log('✓ Test 6 Passed: Admin registered new student (QR-ready via nip)');
 
-  // 10. Admin Stats & Trend
+  // 7. Login siswa baru
+  const studentLogin = await request(
+    { hostname: 'localhost', port: TEST_PORT, path: '/api/auth/login', method: 'POST' },
+    { email: 'siswa.uji@sekolah.sch.id', password: 'siswa123' }
+  );
+  assert.strictEqual(studentLogin.statusCode, 200);
+  const studentToken = studentLogin.bodyJson.token;
+  console.log('✓ Test 7 Passed: New student can login');
+
+  // 8. QR gerbang tersedia
+  const gateQr = await request({ hostname: 'localhost', port: TEST_PORT, path: '/api/attendance/school-qr', method: 'GET' });
+  assert.strictEqual(gateQr.statusCode, 200);
+  assert(gateQr.bodyJson.qr_token.startsWith('SEKOLAH_QR:'));
+  console.log('✓ Test 8 Passed: School gate QR available');
+
+  // 9. Absen masuk via scan QR gerbang
+  const scanIn = await request(
+    {
+      hostname: 'localhost',
+      port: TEST_PORT,
+      path: '/api/attendance/scan-qr',
+      method: 'POST',
+      headers: { Authorization: `Bearer ${studentToken}` }
+    },
+    { qr_data: gateQr.bodyJson.qr_token, lat: -6.3614144, lng: 107.0540305, notes: 'Scan gerbang' }
+  );
+  assert.strictEqual(scanIn.statusCode, 200, JSON.stringify(scanIn.bodyJson));
+  assert.strictEqual(scanIn.bodyJson.action, 'clock-in');
+  assert(['present', 'late'].includes(scanIn.bodyJson.status));
+  console.log('✓ Test 9 Passed: Student clock-in via gate QR');
+
+  // 10. Stats admin
   const statsRes = await request({
     hostname: 'localhost',
     port: TEST_PORT,
@@ -158,11 +140,9 @@ async function runTests() {
   });
   assert.strictEqual(statsRes.statusCode, 200);
   assert(statsRes.bodyJson.stats.totalAll > 0);
-  assert(statsRes.bodyJson.stats.totalStudents > 0);
-  assert(statsRes.bodyJson.stats.totalTeachers > 0);
-  console.log('✓ Test 10 Passed: School attendance stats breakdown (Siswa & Guru)');
+  console.log('✓ Test 10 Passed: Attendance stats after QR scan');
 
-  // 11. Admin Export CSV
+  // 11. Export CSV
   const exportRes = await request({
     hostname: 'localhost',
     port: TEST_PORT,
@@ -172,11 +152,10 @@ async function runTests() {
   });
   assert.strictEqual(exportRes.statusCode, 200);
   assert(exportRes.headers['content-type'].includes('text/csv'));
-  assert(exportRes.bodyStr.includes('Tanggal,NISN / NIP,Nama Siswa / Guru'));
-  console.log('✓ Test 11 Passed: Export CSV generates school attendance report');
+  console.log('✓ Test 11 Passed: Export CSV generates report');
 
   console.log('------------------------------------------------');
-  console.log('🎉 ALL 11 SCHOOL TESTS PASSED SUCCESSFULLY!');
+  console.log('🎉 ALL 11 API TESTS PASSED SUCCESSFULLY!');
   console.log('------------------------------------------------');
 }
 

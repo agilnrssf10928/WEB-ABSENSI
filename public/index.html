@@ -127,57 +127,6 @@
             <i class="fa-solid fa-arrow-right text-xs"></i>
           </button>
         </form>
-
-        <!-- Quick Demo Login Buttons -->
-        <div class="mt-8 pt-6 border-t border-slate-100">
-          <p class="text-xs text-center font-semibold text-slate-500 mb-3 uppercase tracking-wider">Demo Cepat (1-Klik Login Sekolah):</p>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <button type="button" class="btn-quick-login py-2 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg text-left flex items-center space-x-2 transition border border-indigo-200"
-              data-email="admin@sekolah.sch.id" data-pass="admin123">
-              <i class="fa-solid fa-user-shield text-indigo-600 text-base"></i>
-              <div class="truncate">
-                <div class="font-bold">Kepala Sekolah / Admin</div>
-                <div class="text-[10px] text-indigo-500">Bisa Absen + Pantau Sekolah</div>
-              </div>
-            </button>
-
-            <button type="button" class="btn-quick-login py-2 px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-semibold rounded-lg text-left flex items-center space-x-2 transition border border-purple-200"
-              data-email="guru@sekolah.sch.id" data-pass="guru123">
-              <i class="fa-solid fa-chalkboard-user text-purple-600 text-base"></i>
-              <div class="truncate">
-                <div class="font-bold">Ibu Ratna, S.Pd</div>
-                <div class="text-[10px] text-purple-500">Guru / Wali Kelas</div>
-              </div>
-            </button>
-
-            <button type="button" class="btn-quick-login py-2 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-lg text-left flex items-center space-x-2 transition border border-emerald-200"
-              data-email="budi@sekolah.sch.id" data-pass="budi123">
-              <i class="fa-solid fa-user-graduate text-emerald-600 text-base"></i>
-              <div class="truncate">
-                <div class="font-bold">Budi Santoso</div>
-                <div class="text-[10px] text-emerald-500">Siswa - XII RPL 1</div>
-              </div>
-            </button>
-
-            <button type="button" class="btn-quick-login py-2 px-3 bg-pink-50 hover:bg-pink-100 text-pink-700 text-xs font-semibold rounded-lg text-left flex items-center space-x-2 transition border border-pink-200"
-              data-email="siti@sekolah.sch.id" data-pass="siti123">
-              <i class="fa-solid fa-user-graduate text-pink-600 text-base"></i>
-              <div class="truncate">
-                <div class="font-bold">Siti Rahmawati</div>
-                <div class="text-[10px] text-pink-500">Siswa - XI MIPA 2</div>
-              </div>
-            </button>
-
-            <button type="button" class="btn-quick-login sm:col-span-2 py-2 px-3 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-semibold rounded-lg text-left flex items-center space-x-2 transition border border-amber-200"
-              data-email="ahmad@sekolah.sch.id" data-pass="ahmad123">
-              <i class="fa-solid fa-user-graduate text-amber-600 text-base"></i>
-              <div class="truncate">
-                <div class="font-bold">Ahmad Fauzi</div>
-                <div class="text-[10px] text-amber-500">Siswa - X IPS 1</div>
-              </div>
-            </button>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -248,64 +197,25 @@
             </div>
           </div>
 
-          <!-- Kamera & Tombol Presensi -->
-          <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-5">
-            <div class="flex items-center justify-between">
-              <h3 class="font-bold text-slate-900 flex items-center space-x-2">
-                <i class="fa-solid fa-camera text-blue-600"></i>
-                <span>Verifikasi Kamera Selfie</span>
-              </h3>
-              <button id="btn-switch-camera" class="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-600 font-semibold transition">
-                <i class="fa-solid fa-rotate mr-1"></i> Ganti Kamera
-              </button>
-            </div>
-
-            <!-- Viewfinder Kamera -->
-            <div class="camera-container relative rounded-xl overflow-hidden shadow-inner">
-              <video id="camera-feed" autoplay playsinline class="w-full h-full object-cover"></video>
-              <canvas id="camera-canvas" class="hidden"></canvas>
-              <img id="camera-snapshot-preview" class="hidden w-full h-full object-cover" alt="Snapshot" />
-              <div class="camera-guide-box" id="camera-guide"></div>
-
-              <button id="btn-retake-photo" class="hidden absolute bottom-3 right-3 px-3 py-1.5 bg-black/70 hover:bg-black text-white text-xs font-semibold rounded-lg backdrop-blur-sm transition">
-                <i class="fa-solid fa-arrows-rotate mr-1"></i> Ambil Ulang
-              </button>
-            </div>
-
-            <!-- Fallback upload -->
-            <div id="camera-fallback-box" class="hidden p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
-              <div class="font-bold flex items-center space-x-1.5 mb-1">
-                <i class="fa-solid fa-triangle-exclamation"></i>
-                <span>Kamera tidak terdeteksi atau diblokir perizinannya</span>
+          <!-- Panduan Absen QR -->
+          <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
+            <h3 class="font-bold text-slate-900 flex items-center space-x-2">
+              <i class="fa-solid fa-qrcode text-emerald-600"></i>
+              <span>Absen Hanya Lewat QR Code</span>
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
+                <div class="font-bold text-emerald-800 text-sm mb-1"><i class="fa-solid fa-school-flag mr-1"></i> Cara 1 — QR Gerbang</div>
+                <p class="text-xs text-emerald-700">Buka tab <strong>QR Absensi Saya</strong> → <strong>Mulai Scan QR</strong> → scan QR yang terpasang di gerbang sekolah. Absen masuk/pulang otomatis tercatat.</p>
               </div>
-              <p class="mb-2">Anda dapat mengunggah foto selfie langsung dari galeri:</p>
-              <input type="file" id="fallback-photo-input" accept="image/*" class="text-xs file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-200 file:text-amber-900 hover:file:bg-amber-300" />
-            </div>
-
-            <!-- Input Catatan Opsional -->
-            <div>
-              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Catatan Kehadiran (Opsional)</label>
-              <input type="text" id="attendance-notes" placeholder="Contoh: Piket kelas pagi / Bertugas upacara / Lomba..."
-                class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition" />
-            </div>
-
-            <!-- Action Button -->
-            <div id="attendance-action-area" class="pt-2">
-              <button id="btn-clock-in" class="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-base shadow-lg shadow-emerald-600/30 transition flex items-center justify-center space-x-3">
-                <i class="fa-solid fa-right-to-bracket text-lg"></i>
-                <span>ABSEN MASUK SEKOLAH SEKARANG</span>
-              </button>
-
-              <button id="btn-clock-out" class="hidden w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-base shadow-lg shadow-blue-600/30 transition flex items-center justify-center space-x-3">
-                <i class="fa-solid fa-right-from-bracket text-lg"></i>
-                <span>ABSEN PULANG SEKOLAH SEKARANG</span>
-              </button>
-
-              <div id="box-clock-completed" class="hidden p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-center text-emerald-800 font-bold">
-                <i class="fa-solid fa-circle-check text-emerald-600 text-2xl block mb-1"></i>
-                <span>Presensi Hari Ini Telah Selesai! Selamat beristirahat.</span>
+              <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+                <div class="font-bold text-indigo-800 text-sm mb-1"><i class="fa-solid fa-id-card mr-1"></i> Cara 2 — Kartu QR</div>
+                <p class="text-xs text-indigo-700">Tunjukkan <strong>kartu QR</strong> Anda ke guru piket/petugas untuk discan. Cocok jika HP tidak memungkinkan.</p>
               </div>
             </div>
+            <button id="btn-go-qr-tab" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm shadow-md transition">
+              <i class="fa-solid fa-qrcode mr-1"></i> Buka Halaman Scan QR Sekarang
+            </button>
           </div>
         </div>
 

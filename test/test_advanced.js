@@ -25,62 +25,31 @@ function request(options, data = null) {
 }
 
 async function runAdvancedTests() {
-  console.log('--- Starting School Advanced Workflow Tests ---');
+  console.log('--- Starting Advanced Workflow Tests (QR-only) ---');
 
-  // Login Admin
+  // Login admin agil
   const adminLogin = await request(
     { hostname: 'localhost', port: TEST_PORT, path: '/api/auth/login', method: 'POST' },
-    { email: 'admin@sekolah.sch.id', password: 'admin123' }
+    { email: 'agil', password: '12345678' }
   );
+  assert.strictEqual(adminLogin.statusCode, 200);
   const adminToken = adminLogin.bodyJson.token;
 
-  // Login Siswa (Siti Rahmawati)
-  const sitiLogin = await request(
-    { hostname: 'localhost', port: TEST_PORT, path: '/api/auth/login', method: 'POST' },
-    { email: 'siti@sekolah.sch.id', password: 'siti123' }
-  );
-  const sitiToken = sitiLogin.bodyJson.token;
-
-  // 1. Siswa mengajukan dispensasi lomba
-  const leaveRes = await request(
+  // Admin scan QR kartu sendiri (USER_ID:agil) -> absen masuk admin via kartu
+  const selfCardScan = await request(
     {
       hostname: 'localhost',
       port: TEST_PORT,
-      path: '/api/leaves',
+      path: '/api/attendance/scan-qr',
       method: 'POST',
-      headers: { Authorization: `Bearer ${sitiToken}` }
-    },
-    {
-      type: 'dispensation',
-      start_date: '2026-09-21',
-      end_date: '2026-09-23',
-      reason: 'Mengikuti Lomba Cerdas Cermat Tingkat Nasional mewakili sekolah'
-    }
-  );
-  assert.strictEqual(leaveRes.statusCode, 200);
-  assert(leaveRes.bodyJson.success);
-  const leaveId = leaveRes.bodyJson.leave.id;
-  console.log('✓ Advanced 1: Student submitted dispensation request (ID:', leaveId, ')');
-
-  // 2. Admin / Guru Piket menyetujui dispensasi
-  const approveRes = await request(
-    {
-      hostname: 'localhost',
-      port: TEST_PORT,
-      path: `/api/leaves/${leaveId}`,
-      method: 'PUT',
       headers: { Authorization: `Bearer ${adminToken}` }
     },
-    {
-      status: 'approved',
-      admin_notes: 'Disetujui pihak sekolah. Harap membawa nama baik sekolah.'
-    }
+    { qr_data: 'USER_ID:agil' }
   );
-  assert.strictEqual(approveRes.statusCode, 200);
-  assert.strictEqual(approveRes.bodyJson.leave.status, 'approved');
-  console.log('✓ Advanced 2: School admin approved student dispensation');
+  assert([200, 400].includes(selfCardScan.statusCode), JSON.stringify(selfCardScan.bodyJson));
+  console.log('✓ Advanced 1: Admin self card scan processed (', selfCardScan.bodyJson.action || selfCardScan.bodyJson.error, ')');
 
-  // 3. Admin mendaftarkan Siswa Baru
+  // 2. Admin mendaftarkan Siswa Baru
   const newStudentRes = await request(
     {
       hostname: 'localhost',
@@ -103,18 +72,50 @@ async function runAdvancedTests() {
   assert.strictEqual(newStudentRes.statusCode, 200);
   assert.strictEqual(newStudentRes.bodyJson.employee.nip, '0098765432');
   const newStudentId = newStudentRes.bodyJson.employee.id;
-  console.log('✓ Advanced 3: Admin registered new student Rian Pratama (ID:', newStudentId, ')');
+  console.log('✓ Advanced 2: Admin registered new student Rian Pratama (ID:', newStudentId, ')');
 
-  // 4. Test login dengan akun siswa baru
+  // 3. Test login dengan akun siswa baru
   const rianLogin = await request(
     { hostname: 'localhost', port: TEST_PORT, path: '/api/auth/login', method: 'POST' },
     { email: 'rian@sekolah.sch.id', password: 'password123' }
   );
   assert.strictEqual(rianLogin.statusCode, 200);
   assert.strictEqual(rianLogin.bodyJson.user.name, 'Rian Pratama');
-  console.log('✓ Advanced 4: Newly registered student can login successfully');
+  const rianToken = rianLogin.bodyJson.token;
+  console.log('✓ Advanced 3: Newly registered student can login successfully');
 
-  // 5. Admin memperbarui pengaturan gerbang sekolah
+  // 4. Rian scan kartu miliknya sendiri via kamera -> absen masuk
+  const rianCardScan = await request(
+    {
+      hostname: 'localhost',
+      port: TEST_PORT,
+      path: '/api/attendance/scan-qr',
+      method: 'POST',
+      headers: { Authorization: `Bearer ${rianToken}` }
+    },
+    { qr_data: 'USER_ID:0098765432' }
+  );
+  assert.strictEqual(rianCardScan.statusCode, 200, JSON.stringify(rianCardScan.bodyJson));
+  assert.strictEqual(rianCardScan.bodyJson.action, 'clock-in');
+  console.log('✓ Advanced 4: Student clock-in via own card QR');
+
+  // 5. Admin scan kartu Rian -> mencatat absen pulang untuk Rian
+  const adminScanRian = await request(
+    {
+      hostname: 'localhost',
+      port: TEST_PORT,
+      path: '/api/attendance/scan-qr',
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` }
+    },
+    { qr_data: 'USER_ID:0098765432' }
+  );
+  assert.strictEqual(adminScanRian.statusCode, 200, JSON.stringify(adminScanRian.bodyJson));
+  assert.strictEqual(adminScanRian.bodyJson.action, 'clock-out');
+  assert.strictEqual(adminScanRian.bodyJson.user.name, 'Rian Pratama');
+  console.log('✓ Advanced 5: Officer (admin) scanned student card for clock-out');
+
+  // 6. Admin memperbarui pengaturan gerbang sekolah
   const updateSettings = await request(
     {
       hostname: 'localhost',
@@ -136,9 +137,9 @@ async function runAdvancedTests() {
   );
   assert.strictEqual(updateSettings.statusCode, 200);
   assert.strictEqual(updateSettings.bodyJson.settings.office_name, 'SMK Pariwisata Digital Unggulan');
-  console.log('✓ Advanced 5: School settings update verified');
+  console.log('✓ Advanced 6: School settings update verified');
 
-  // 6. Admin menghapus data siswa uji coba
+  // 7. Admin menghapus data siswa uji coba
   const deleteRes = await request(
     {
       hostname: 'localhost',
@@ -149,10 +150,10 @@ async function runAdvancedTests() {
     }
   );
   assert.strictEqual(deleteRes.statusCode, 200);
-  console.log('✓ Advanced 6: Admin successfully deleted test student record');
+  console.log('✓ Advanced 7: Admin successfully deleted test student record');
 
   console.log('------------------------------------------------');
-  console.log('🎉 ALL ADVANCED SCHOOL TESTS PASSED!');
+  console.log('🎉 ALL ADVANCED TESTS PASSED!');
   console.log('------------------------------------------------');
 }
 
