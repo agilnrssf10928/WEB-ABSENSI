@@ -12,6 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script>
     tailwind.config = {
+      darkMode: 'class',
       theme: {
         extend: {
           colors: {
@@ -40,6 +41,10 @@
   <!-- Chart.js (tidak dipakai lagi — grafik dihapus) -->
 
   <!-- Custom CSS -->
+  <script>
+    // Terapkan tema tersimpan SEBELUM halaman digambar (anti flash putih)
+    try { if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark'); } catch (e) {}
+  </script>
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body class="text-slate-800 antialiased min-h-screen flex flex-col" style="font-family:'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;">
@@ -75,6 +80,9 @@
             <span id="nav-user-dept">-</span>
           </div>
         </div>
+        <button id="btn-theme-toggle" class="p-2 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition" title="Ganti Tema Terang/Gelap">
+          <i class="fa-solid fa-moon text-lg"></i>
+        </button>
         <button id="btn-logout" class="p-2 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition" title="Keluar">
           <i class="fa-solid fa-arrow-right-from-bracket text-lg"></i>
         </button>
@@ -89,6 +97,9 @@
     <!-- VIEW 0: LOGIN VIEW -->
     <!-- ======================================================== -->
     <div id="view-login" class="max-w-md mx-auto my-8 sm:my-14">
+      <button id="btn-theme-toggle-login" class="float-right mt-1 p-2.5 rounded-xl bg-white/80 border border-slate-200 text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition shadow-sm" title="Ganti Tema Terang/Gelap">
+        <i class="fa-solid fa-moon"></i>
+      </button>
       <div class="bg-white/90 backdrop-blur rounded-2xl border border-slate-200 shadow-xl card-shadow overflow-hidden">
         <div class="login-decor"></div>
         <div class="p-8">

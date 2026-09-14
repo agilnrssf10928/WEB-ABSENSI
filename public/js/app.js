@@ -1837,7 +1837,37 @@ document.addEventListener('keydown', e => {
 // INITIALIZATION
 // ========================================================
 
+// ========================================================
+// DARK / LIGHT MODE TOGGLE
+// ========================================================
+
+function applyTheme(theme) {
+  const isDark = theme === 'dark';
+  document.documentElement.classList.toggle('dark', isDark);
+  document.querySelectorAll('#btn-theme-toggle i, #btn-theme-toggle-login i').forEach(icon => {
+    icon.className = isDark ? 'fa-solid fa-sun text-lg' : 'fa-solid fa-moon text-lg';
+  });
+  try { localStorage.setItem('theme', theme); } catch (e) {}
+}
+
+function initThemeToggle() {
+  // Sinkronkan ikon dengan tema yang mungkin sudah diset oleh script anti-flash di <head>
+  applyTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+
+  const toggle = () => {
+    const next = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
+    applyTheme(next);
+    showToast(next === 'dark' ? 'Mode gelap aktif 🌙' : 'Mode terang aktif ☀️', 'info');
+  };
+
+  const btnHeader = document.getElementById('btn-theme-toggle');
+  const btnLogin = document.getElementById('btn-theme-toggle-login');
+  if (btnHeader) btnHeader.addEventListener('click', toggle);
+  if (btnLogin) btnLogin.addEventListener('click', toggle);
+}
+
 window.addEventListener('DOMContentLoaded', () => {
+  initThemeToggle();
   startClock();
   checkAuth();
 });
