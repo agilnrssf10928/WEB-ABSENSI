@@ -272,13 +272,13 @@ const qrState = {
 
 function switchEmployeeTab(tabName) {
   document.querySelectorAll('.tab-btn-emp').forEach(b => {
-    b.classList.remove('active', 'text-blue-600', 'border-b-2', 'border-blue-600');
+    b.classList.remove('active');
     b.classList.add('text-slate-500');
   });
 
   const activeBtn = document.getElementById(`tab-emp-${tabName}`);
   if (activeBtn) {
-    activeBtn.classList.add('active', 'text-blue-600', 'border-b-2', 'border-blue-600');
+    activeBtn.classList.add('active');
     activeBtn.classList.remove('text-slate-500');
   }
 
@@ -287,12 +287,19 @@ function switchEmployeeTab(tabName) {
 
   placeClockPanelInStudentView();
 
+  const empPanels = ['panel-emp-clock', 'panel-emp-history', 'panel-emp-leave', 'panel-emp-scan'];
+  empPanels.forEach(id => document.getElementById(id).classList.remove('panel-enter'));
+
   document.getElementById('panel-emp-clock').classList.toggle('hidden', tabName !== 'clock');
   document.getElementById('panel-emp-history').classList.toggle('hidden', tabName !== 'history');
   document.getElementById('panel-emp-leave').classList.toggle('hidden', tabName !== 'leave');
   // Siswa tidak bisa scan — panel scanner disembunyikan untuk role student
   const isStudentView = state.currentUser && state.currentUser.role === 'student';
   document.getElementById('panel-emp-scan').classList.toggle('hidden', tabName !== 'scan' || isStudentView);
+
+  // Animasi masuk panel yang aktif
+  const activePanel = document.getElementById(`panel-emp-${tabName}`);
+  if (activePanel && !activePanel.classList.contains('hidden')) activePanel.classList.add('panel-enter');
 
   stopQrScanner();
 
@@ -893,13 +900,13 @@ function placeClockPanelInAdminView() {
 
 function switchAdminTab(tabName) {
   document.querySelectorAll('.tab-btn-adm').forEach(b => {
-    b.classList.remove('active', 'text-blue-600', 'border-b-2', 'border-blue-600');
+    b.classList.remove('active');
     b.classList.add('text-slate-500');
   });
 
   const activeBtn = document.getElementById(`tab-adm-${tabName}`);
   if (activeBtn) {
-    activeBtn.classList.add('active', 'text-blue-600', 'border-b-2', 'border-blue-600');
+    activeBtn.classList.add('active');
     activeBtn.classList.remove('text-slate-500');
   }
 
@@ -910,6 +917,14 @@ function switchAdminTab(tabName) {
   document.getElementById('panel-adm-leaves').classList.toggle('hidden', tabName !== 'leaves');
   document.getElementById('panel-adm-emp').classList.toggle('hidden', tabName !== 'emp');
   document.getElementById('panel-adm-settings').classList.toggle('hidden', tabName !== 'settings');
+
+  // Animasi masuk panel admin yang aktif
+  const admPanel = document.getElementById(`panel-adm-${tabName}`);
+  if (admPanel) {
+    admPanel.classList.remove('panel-enter');
+    void admPanel.offsetWidth; // restart animation
+    admPanel.classList.add('panel-enter');
+  }
 
   if (tabName === 'myclock') {
     placeClockPanelInAdminView();

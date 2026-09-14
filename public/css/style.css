@@ -27,10 +27,10 @@ body {
 
 /* Glassmorphism & Card Shadows */
 .card-shadow {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  border: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px -8px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(226, 232, 240, 0.9);
   background: white;
-  border-radius: 0.75rem;
+  border-radius: 1rem;
 }
 
 .card-hover {
@@ -38,8 +38,145 @@ body {
 }
 
 .card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  transform: translateY(-3px);
+  box-shadow: 0 4px 8px rgba(15, 23, 42, 0.06), 0 16px 32px -12px rgba(37, 99, 235, 0.18);
+  border-color: rgba(37, 99, 235, 0.25);
+}
+
+/* ===== UI REFRESH: FONT & BACKGROUND ===== */
+body {
+  background:
+    radial-gradient(1000px 500px at 85% -10%, rgba(99, 102, 241, 0.10), transparent 60%),
+    radial-gradient(900px 450px at -10% 0%, rgba(37, 99, 235, 0.08), transparent 55%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+  background-attachment: fixed;
+  font-feature-settings: 'ss01' on;
+}
+
+h1, h2, h3, h4 {
+  letter-spacing: -0.015em;
+}
+
+/* Header kaca (glass) */
+#main-header {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+/* ===== TABS: PILLS ===== */
+.tab-btn-emp,
+.tab-btn-adm {
+  border-radius: 9999px !important;
+  border-bottom-width: 0 !important;
+  padding: 0.55rem 1.1rem !important;
+  transition: all 0.2s ease;
+  border: 1px solid transparent !important;
+  background: transparent;
+}
+
+.tab-btn-emp:hover,
+.tab-btn-adm:hover {
+  background: rgba(37, 99, 235, 0.07);
+  color: #1d4ed8;
+}
+
+.tab-btn-emp.active,
+.tab-btn-adm.active {
+  background: linear-gradient(135deg, #2563eb, #4f46e5) !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 16px -4px rgba(37, 99, 235, 0.45);
+}
+
+.tab-btn-emp.active:hover,
+.tab-btn-adm.active:hover {
+  color: #ffffff;
+}
+
+/* Tab strip container: kapsul putih */
+.tabstrip-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 9999px;
+  padding: 0.45rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 20px -10px rgba(15, 23, 42, 0.12);
+}
+
+/* KPI & kartu ringkasan */
+.kpi-glow-emerald { box-shadow: 0 8px 20px -8px rgba(16, 185, 129, 0.45); }
+.kpi-glow-amber { box-shadow: 0 8px 20px -8px rgba(245, 158, 11, 0.45); }
+.kpi-glow-blue { box-shadow: 0 8px 20px -8px rgba(37, 99, 235, 0.45); }
+
+/* Tabel rapi */
+.data-table thead th {
+  background: linear-gradient(180deg, #f8fafc, #f1f5f9);
+  position: sticky;
+  top: 0;
+}
+
+.data-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.data-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+/* Badge QR pribadi & kartu QR: bingkai indah */
+.qr-frame {
+  background: linear-gradient(135deg, #eef2ff, #ecfdf5);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 1rem;
+}
+
+/* Tombol utama dengan efek halus */
+.btn-primary-glow {
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  box-shadow: 0 8px 20px -6px rgba(37, 99, 235, 0.5);
+  transition: all 0.2s ease;
+}
+
+.btn-primary-glow:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px -8px rgba(37, 99, 235, 0.55);
+}
+
+.btn-primary-glow:active {
+  transform: translateY(0);
+}
+
+/* Footer */
+.app-footer {
+  text-align: center;
+  padding: 1.5rem 1rem 2rem;
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+
+/* Animasi panel saat ganti tab */
+.panel-enter {
+  animation: panel-fade-up 0.35s ease;
+}
+
+@keyframes panel-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Login card: hiasan atas bergradasi */
+.login-decor {
+  height: 6px;
+  border-radius: 9999px 9999px 0 0;
+  background: linear-gradient(90deg, #2563eb, #4f46e5, #7c3aed, #2563eb);
+  background-size: 200% 100%;
+  animation: decor-shift 6s linear infinite;
+}
+
+@keyframes decor-shift {
+  0% { background-position: 0% 0; }
+  100% { background-position: 200% 0; }
 }
 
 /* Banner Sukses Login */
