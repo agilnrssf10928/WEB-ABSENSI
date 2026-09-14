@@ -37,8 +37,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Chart.js (tidak dipakai lagi — grafik dihapus) -->
 
   <!-- Custom CSS -->
   <link rel="stylesheet" href="/css/style.css">
@@ -509,7 +508,7 @@
         </button>
         <button id="tab-adm-leaves" class="tab-btn-adm text-slate-500 hover:text-slate-800 pb-2 font-bold text-sm flex items-center space-x-2 whitespace-nowrap">
           <i class="fa-solid fa-envelope-open-text"></i>
-          <span>Persetujuan Izin</span>
+          <span>Daftar Izin & Persetujuan Guru</span>
           <span id="badge-pending-leaves" class="hidden px-1.5 py-0.5 rounded-full text-[10px] bg-red-500 text-white font-bold">0</span>
         </button>
         <button id="tab-adm-emp" class="tab-btn-adm text-slate-500 font-bold text-sm flex items-center space-x-2 whitespace-nowrap">
@@ -601,20 +600,8 @@
           </div>
         </div>
 
-        <!-- 7-Day Trend Chart & Live Feed -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div class="lg:col-span-2 bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
-            <div class="flex items-center justify-between">
-              <h3 class="font-bold text-slate-900 text-base flex items-center space-x-2">
-                <i class="fa-solid fa-chart-line text-blue-600"></i>
-                <span>Grafik Kehadiran Sekolah (7 Hari Terakhir)</span>
-              </h3>
-            </div>
-            <div class="h-64">
-              <canvas id="chart-attendance-trend"></canvas>
-            </div>
-          </div>
-
+        <!-- Live Feed -->
+        <div class="grid grid-cols-1 gap-6">
           <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
             <div class="flex items-center justify-between">
               <h3 class="font-bold text-slate-900 text-base flex items-center space-x-2">
@@ -737,7 +724,7 @@
       <div id="panel-adm-leaves" class="hidden space-y-4">
         <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
           <div>
-            <h3 class="font-bold text-slate-900 text-lg">Persetujuan Izin, Sakit & Dispensasi</h3>
+            <h3 class="font-bold text-slate-900 text-lg">Daftar Izin & Persetujuan Guru</h3>
             <p class="text-xs text-slate-500">Tinjau surat dokter, surat orang tua, dan permohonan dispensasi lomba sekolah</p>
           </div>
 

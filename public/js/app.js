@@ -10,8 +10,7 @@ const state = {
     emp: null,
     admin: null,
     detail: null
-  },
-  trendChart: null
+  }
 };
 
 // ========================================================
@@ -1126,63 +1125,10 @@ async function loadAdminDashboard() {
     document.getElementById('kpi-excused').textContent = stats.excused;
     document.getElementById('kpi-absent').textContent = stats.absent;
 
-    renderTrendChart(data.trend || []);
     loadRecentActivities();
   } catch (err) {
     console.error('Gagal memuat data dashboard:', err);
   }
-}
-
-function renderTrendChart(trendData) {
-  const ctx = document.getElementById('chart-attendance-trend');
-  if (!ctx) return;
-
-  if (state.trendChart) {
-    state.trendChart.destroy();
-  }
-
-  const labels = trendData.map(d => d.label);
-  const presentVals = trendData.map(d => d.present);
-  const lateVals = trendData.map(d => d.late);
-  const excusedVals = trendData.map(d => d.excused);
-
-  state.trendChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        {
-          label: 'Tepat Waktu',
-          data: presentVals,
-          backgroundColor: '#10b981',
-          borderRadius: 6
-        },
-        {
-          label: 'Terlambat',
-          data: lateVals,
-          backgroundColor: '#f59e0b',
-          borderRadius: 6
-        },
-        {
-          label: 'Izin / Sakit / Disp',
-          data: excusedVals,
-          backgroundColor: '#a855f7',
-          borderRadius: 6
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: {
-        x: { stacked: true, grid: { display: false } },
-        y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
-      },
-      plugins: {
-        legend: { position: 'bottom', labels: { boxWidth: 12 } }
-      }
-    }
-  });
 }
 
 async function loadRecentActivities() {
