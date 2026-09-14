@@ -98,6 +98,17 @@ async function runAdvancedTests() {
   assert.strictEqual(rianCardScan.statusCode, 403, JSON.stringify(rianCardScan.bodyJson));
   console.log('✓ Advanced 4: Student cannot scan QR (403, only teachers/admins)');
 
+  // 4b. Rian (siswa) tidak bisa melihat daftar warga sekolah (QR kartu murid khusus guru/admin)
+  const rianEmpList = await request({
+    hostname: 'localhost',
+    port: TEST_PORT,
+    path: '/api/employees?role=student',
+    method: 'GET',
+    headers: { Authorization: `Bearer ${rianToken}` }
+  });
+  assert.strictEqual(rianEmpList.statusCode, 403, JSON.stringify(rianEmpList.bodyJson));
+  console.log('✓ Advanced 4b: Student cannot view student QR list (403)');
+
   // 5a. Admin scan kartu Rian mode 'in' -> absen masuk Rian
   const adminScanIn = await request(
     {

@@ -2,9 +2,12 @@ const { db } = require('../db');
 const { hashPassword } = require('../utils');
 
 function handleEmployeeRoutes(req, res, url, user) {
-  // GET /api/employees (Daftar Siswa & Guru)
+  // GET /api/employees (Daftar Siswa & Guru — khusus Guru & Admin saja)
   if (req.method === 'GET' && url.pathname === '/api/employees') {
     if (!user) return res.json({ error: 'Unauthorized' }, 401);
+    if (user.role === 'student') {
+      return res.json({ error: 'Akses ditolak. Data warga sekolah hanya bisa dilihat Guru & Admin.' }, 403);
+    }
 
     const role = url.searchParams.get('role');
     const department = url.searchParams.get('department');
