@@ -222,7 +222,7 @@
           <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
             <h3 class="font-bold text-slate-900 flex items-center space-x-2">
               <i class="fa-solid fa-qrcode text-emerald-600"></i>
-              <span>Absen Hanya Lewat Kartu QR</span>
+              <span>Absen QR</span>
             </h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div class="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
@@ -235,7 +235,7 @@
               </div>
             </div>
             <button id="btn-go-qr-tab" class="hidden w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm shadow-lg shadow-emerald-600/30 hover:shadow-emerald-600/40 hover:-translate-y-0.5 transition">
-              <i class="fa-solid fa-qrcode mr-1"></i> Buka Scanner QR Sekarang
+              <i class="fa-solid fa-qrcode mr-1"></i> Absen Sekarang
             </button>
             <button id="btn-show-student-qr" class="hidden w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/40 hover:-translate-y-0.5 transition">
               <i class="fa-solid fa-users-rectangle mr-1"></i> Perlihatkan QR Murid yang Terdaftar
@@ -502,24 +502,24 @@
     <!-- ======================================================== -->
     <div id="view-admin" class="hidden space-y-6">
 
-      <!-- Admin Top Tabs (Termasuk Tab Absen Saya!) -->
+      <!-- Admin Top Tabs (Termasuk Tab Absen Masuk/Pulang!) -->
       <div class="tabstrip-card flex items-center overflow-x-auto space-x-1.5 -mx-1 px-1">
         <button id="tab-adm-dash" class="tab-btn-adm active text-blue-600 font-bold text-sm flex items-center space-x-2 whitespace-nowrap">
           <i class="fa-solid fa-chart-pie"></i>
           <span>Dashboard Sekolah</span>
         </button>
-        <!-- TAB ABSEN SAYA UNTUK ADMIN/KEPALA SEKOLAH -->
+        <!-- TAB Absen Masuk/Pulang UNTUK ADMIN/KEPALA SEKOLAH -->
         <button id="tab-adm-myclock" class="tab-btn-adm text-slate-500 font-bold text-sm flex items-center space-x-2 whitespace-nowrap">
           <i class="fa-solid fa-camera"></i>
-          <span>Absen Saya (Admin/Guru)</span>
+          <span>Absen Masuk/Pulang (Admin/Guru)</span>
         </button>
         <button id="tab-adm-today" class="tab-btn-adm text-slate-500 font-bold text-sm flex items-center space-x-2 whitespace-nowrap">
           <i class="fa-solid fa-clipboard-user"></i>
-          <span>Monitoring Kehadiran</span>
+          <span>Kehadiran</span>
         </button>
         <button id="tab-adm-report" class="tab-btn-adm text-slate-500 hover:text-slate-800 pb-2 font-bold text-sm flex items-center space-x-2 whitespace-nowrap">
           <i class="fa-solid fa-file-invoice"></i>
-          <span>Rekap & Laporan Kelas</span>
+          <span>Rekap & Kehadiran</span>
         </button>
         <button id="tab-adm-leaves" class="tab-btn-adm text-slate-500 hover:text-slate-800 pb-2 font-bold text-sm flex items-center space-x-2 whitespace-nowrap">
           <i class="fa-solid fa-envelope-open-text"></i>
@@ -528,7 +528,7 @@
         </button>
         <button id="tab-adm-emp" class="tab-btn-adm text-slate-500 font-bold text-sm flex items-center space-x-2 whitespace-nowrap">
           <i class="fa-solid fa-users"></i>
-          <span>Data Siswa & Guru</span>
+          <span>Data Siswa, Guru & Orang Tua</span>
         </button>
         <button id="tab-adm-settings" class="tab-btn-adm text-slate-500 font-bold text-sm flex items-center space-x-2 whitespace-nowrap">
           <i class="fa-solid fa-gear"></i>
@@ -536,7 +536,7 @@
         </button>
       </div>
 
-      <!-- ADMIN TAB 0: ABSEN SAYA (UNTUK ADMIN/KEPALA SEKOLAH/GURU) -->
+      <!-- ADMIN TAB 0: Absen Masuk/Pulang (UNTUK ADMIN/KEPALA SEKOLAH/GURU) -->
       <div id="panel-adm-myclock" class="hidden space-y-6">
         <div class="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/80 p-4 rounded-2xl flex items-center justify-between">
           <div>
@@ -631,7 +631,7 @@
         </div>
       </div>
 
-      <!-- ADMIN TAB 2: MONITORING KEHADIRAN SEKOLAH -->
+      <!-- ADMIN TAB 2: KEHADIRAN SEKOLAH -->
       <div id="panel-adm-today" class="hidden space-y-4">
         <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -689,7 +689,7 @@
         </div>
       </div>
 
-      <!-- ADMIN TAB 3: REKAP & LAPORAN KELAS -->
+      <!-- ADMIN TAB 3: REKAP & Kehadiran -->
       <div id="panel-adm-report" class="hidden space-y-4">
         <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -766,7 +766,7 @@
         </div>
       </div>
 
-      <!-- ADMIN TAB 5: DATA SISWA & GURU -->
+      <!-- ADMIN TAB 5: Data Siswa, Guru & Orang Tua -->
       <div id="panel-adm-emp" class="hidden space-y-4">
         <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -786,7 +786,7 @@
               <thead class="text-slate-600 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
                 <tr>
                   <th class="p-3">NISN / NIP & Nama</th>
-                  <th class="p-3">Email & Kontak</th>
+                  <th class="p-3">Email</th>
                   <th class="p-3">Kelas / Unit & Jabatan</th>
                   <th class="p-3">Kategori Peran</th>
                   <th class="p-3">Status</th>
@@ -951,10 +951,9 @@
 
         <!-- NISN / NIP (read-only) -->
         <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">NISN / NIP</label>
-          <div class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm font-mono font-semibold text-slate-600" id="profile-nip">-</div>
-        </div>
-
+  <label class="block text-xs font-bold text-slate-700 uppercase mb-1">NISN / NIP</label>
+  <input type="text" id="profile-nip" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-mono font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+</div>
         <!-- Nama -->
         <div>
           <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nama Lengkap</label>
