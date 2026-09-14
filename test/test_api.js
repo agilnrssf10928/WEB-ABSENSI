@@ -30,13 +30,13 @@ function request(options, data = null) {
 }
 
 async function runTests() {
-  console.log('--- Starting PresensiKu API Tests (QR-only) ---');
+  console.log('--- Starting Web Absensi API Tests (QR-only) ---');
 
   // 1. Root HTML
   const rootRes = await request({ hostname: 'localhost', port: TEST_PORT, path: '/', method: 'GET' });
   assert.strictEqual(rootRes.statusCode, 200);
-  assert(rootRes.bodyStr.includes('PresensiKu Sekolah'));
-  console.log('✓ Test 1 Passed: GET / serves PresensiKu HTML');
+  assert(rootRes.bodyStr.includes('Web Absensi Sekolah'));
+  console.log('✓ Test 1 Passed: GET / serves Web Absensi HTML');
 
   // 2. Auth Login Failure
   const failLogin = await request(

@@ -1,9 +1,9 @@
-# 🏫 PresensiKu Sekolah - Sistem Presensi Siswa & Guru Digital
+# 🏫 Web Absensi Sekolah - Sistem Presensi Siswa & Guru Digital
 
-Sistem absensi sekolah digital berbasis web yang dirancang khusus untuk **Siswa, Guru, dan Staf Sekolah** dengan verifikasi kamera selfie, deteksi lokasi GPS radius gerbang sekolah, pengajuan surat izin/sakit/dispensasi lomba, serta monitoring dan rekapitulasi laporan presensi per kelas.
+Sistem absensi sekolah digital berbasis web yang dirancang khusus untuk **Siswa, Guru, dan Staf Sekolah** dengan absensi via scan kartu QR, deteksi lokasi GPS radius gerbang sekolah, pengajuan surat izin/sakit/dispensasi lomba, serta monitoring dan rekapitulasi laporan presensi per kelas.
 
 > [!NOTE]
-> **Semua pengguna (termasuk Admin & Kepala Sekolah) dapat melakukan absensi mandiri** dengan kamera selfie dan GPS lokasi sekolah.
+> **Semua pengguna (termasuk Admin & Kepala Sekolah) dapat melakukan absensi mandiri** dengan scan kartu QR pribadi dan GPS lokasi sekolah.
 
 ---
 
@@ -11,13 +11,13 @@ Sistem absensi sekolah digital berbasis web yang dirancang khusus untuk **Siswa,
 
 ### 1. Portal Siswa & Guru
 - **Absen Masuk & Pulang Sekolah**:
-  - Pratinjau kamera selfie langsung dengan garis panduan wajah & tombol ambil ulang.
+  - Absensi hanya lewat scan Kartu QR pribadi (kamera scanner QR).
   - Deteksi lokasi GPS gerbang sekolah otomatis via rumus Haversine.
   - Peta interaktif Leaflet OpenStreetMap dengan lingkaran radius jangkauan sekolah.
   - Evaluasi otomatis status **Tepat Waktu** vs **Terlambat** (Bel masuk: **07:00 WIB**, toleransi s/d **07:15 WIB**).
   - Bel pulang sekolah standar pukul **15:00 WIB**.
 - **Riwayat Presensi**:
-  - Filter presensi bulanan lengkap dengan pratinjau foto selfie, jam masuk, jam pulang, dan jarak.
+  - Filter presensi bulanan lengkap dengan jam masuk, jam pulang, dan jarak.
 - **Izin, Sakit & Dispensasi**:
   - Formulir pengajuan: Sakit (Surat Dokter), Izin Orang Tua, dan Dispensasi (Lomba / Tugas / Kegiatan Sekolah).
   - Unggah foto bukti surat pendukung.
@@ -25,13 +25,13 @@ Sistem absensi sekolah digital berbasis web yang dirancang khusus untuk **Siswa,
 
 ### 2. Portal Admin & Kepala Sekolah
 - **Absensi Mandiri Admin ("Absen Saya")**:
-  - Kepala Sekolah & Admin memiliki tab khusus untuk melakukan absen masuk & pulang dengan kamera selfie & GPS.
+  - Kepala Sekolah & Admin memiliki tab khusus untuk melakukan absen masuk & pulang dengan scan QR & GPS.
 - **Dashboard Presensi Sekolah**:
   - Statistik harian: Total Warga Sekolah, Siswa, Guru & Staf, Hadir Tepat Waktu, Terlambat, Izin/Sakit/Dispensasi, dan Belum Hadir (Alfa).
   - Grafik tren kehadiran 7 hari terakhir (Chart.js).
 - **Monitoring Kehadiran Realtime**:
   - Tabel kehadiran hari ini dengan filter per Kelas/Unit (misal: XII RPL 1, XI MIPA 2, Dewan Guru) dan peran (Siswa vs Guru).
-  - Modal detail presensi: Pratinjau foto selfie dan titik koordinat peta GPS saat absen.
+  - Modal detail presensi: Titik koordinat peta GPS saat absen.
 - **Rekapitulasi & Laporan Sekolah**:
   - Filter bulanan dan kelas.
   - **Export CSV / Excel** untuk arsip rekap nilai sikap siswa.

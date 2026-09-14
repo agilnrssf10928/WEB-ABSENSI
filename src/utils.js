@@ -2,7 +2,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const SECRET_KEY = 'presensiku-super-secure-key-2026';
+const SECRET_KEY = 'web-absensi-sekolah-secret-key-2026';
 
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');

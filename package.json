@@ -1,7 +1,7 @@
 {
   "name": "web-absensi",
   "version": "1.0.0",
-  "description": "Sistem Absensi Online PresensiKu",
+  "description": "Web Absensi Sekolah - Sistem Absensi Siswa & Guru Digital",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

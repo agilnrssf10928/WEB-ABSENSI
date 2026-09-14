@@ -1,14 +1,11 @@
 // ========================================================
-// PresensiKu Sekolah - Client Application Script
+// Web Absensi Sekolah - Client Application Script
 // ========================================================
 
 const state = {
   currentUser: null,
   officeSettings: null,
   userCoords: null,
-  webcamStream: null,
-  webcamFacing: 'user',
-  currentSnapshot: null,
   maps: {
     emp: null,
     admin: null,
@@ -166,6 +163,32 @@ async function loadSettings() {
   }
 }
 
+// Banner sukses besar setelah login
+function showLoginSuccessBanner() {
+  const existing = document.getElementById('login-success-banner');
+  if (existing) existing.remove();
+
+  const banner = document.createElement('div');
+  banner.id = 'login-success-banner';
+  banner.className = 'login-success-banner';
+  banner.innerHTML = `
+    <div class="flex items-center justify-center space-x-3">
+      <i class="fa-solid fa-circle-check text-3xl"></i>
+      <div class="text-center">
+        <div class="font-black text-base sm:text-lg tracking-wide">SELAMAT ANDA BERHASIL LOGIN KE WEB ABSENSI SEKOLAH</div>
+      </div>
+    </div>
+  `;
+  document.body.prepend(banner);
+
+  // Hilangkan otomatis setelah 6 detik
+  setTimeout(() => {
+    banner.style.opacity = '0';
+    banner.style.transform = 'translateY(-16px)';
+    setTimeout(() => banner.remove(), 400);
+  }, 6000);
+}
+
 // Form Login Submit
 document.getElementById('form-login').addEventListener('submit', async e => {
   e.preventDefault();
@@ -185,7 +208,8 @@ document.getElementById('form-login').addEventListener('submit', async e => {
     const data = await res.json();
 
     if (data.success) {
-      showToast(`Selamat datang di PresensiKu Sekolah, ${data.user.name}!`, 'success');
+      showToast('SELAMAT ANDA BERHASIL LOGIN KE WEB ABSENSI SEKOLAH', 'success');
+      showLoginSuccessBanner();
       state.currentUser = data.user;
       renderApp();
     } else {
@@ -230,13 +254,6 @@ function placeClockPanelInStudentView() {
   const studentView = document.getElementById('view-employee');
   const historyPanel = document.getElementById('panel-emp-history');
   studentView.insertBefore(clockPanel, historyPanel);
-
-  // Kembalikan panel QR ke tampilan siswa/guru (posisi: setelah panel izin)
-  const qrPanel = document.getElementById('panel-emp-qr');
-  const leavePanel = document.getElementById('panel-emp-leave');
-  if (qrPanel && leavePanel) {
-    leavePanel.parentNode.insertBefore(qrPanel, leavePanel.nextSibling);
-  }
 }
 
 // ========================================================
@@ -272,14 +289,9 @@ function switchEmployeeTab(tabName) {
   document.getElementById('panel-emp-clock').classList.toggle('hidden', tabName !== 'clock');
   document.getElementById('panel-emp-history').classList.toggle('hidden', tabName !== 'history');
   document.getElementById('panel-emp-leave').classList.toggle('hidden', tabName !== 'leave');
-  document.getElementById('panel-emp-qr').classList.toggle('hidden', tabName !== 'qr');
   document.getElementById('panel-emp-scan').classList.toggle('hidden', tabName !== 'scan');
 
   stopQrScanner();
-
-  if (tabName === 'qr') {
-    renderMyQrCode();
-  }
 
   if (tabName === 'clock') {
     initGeolocation();
@@ -295,11 +307,11 @@ document.getElementById('tab-emp-clock').addEventListener('click', () => switchE
 document.getElementById('tab-emp-scan').addEventListener('click', () => switchEmployeeTab('scan'));
 document.getElementById('tab-emp-history').addEventListener('click', () => switchEmployeeTab('history'));
 document.getElementById('tab-emp-leave').addEventListener('click', () => switchEmployeeTab('leave'));
-document.getElementById('tab-emp-qr').addEventListener('click', () => switchEmployeeTab('qr'));
 
 async function initEmployeePortal() {
   await loadTodayAttendance();
   initGeolocation();
+  renderMyQrCode();
 }
 
 async function loadTodayAttendance() {
@@ -613,15 +625,14 @@ async function loadEmployeeHistory() {
     monthInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   }
 
-  const tbody = document.getElementById('table-emp-history');
-  tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Memuat data...</td></tr>`;
+  const tbody = document.getElementById('table-emp-history');    tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Memuat data...</td></tr>`;
 
   try {
     const res = await fetch(`/api/attendance/history?month=${monthInput.value}`);
     const data = await res.json();
 
     if (!data.success || !data.attendances || data.attendances.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400">Belum ada catatan presensi pada bulan ini.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">Belum ada catatan presensi pada bulan ini.</td></tr>`;
       return;
     }
 
@@ -632,22 +643,19 @@ async function loadEmployeeHistory() {
                           row.status === 'dispensation' ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">Dispensasi</span>' :
                           '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">Izin</span>';
 
-      const photoThumb = row.photo_in ? `<img src="${row.photo_in}" class="w-8 h-8 rounded-lg object-cover cursor-pointer hover:opacity-80 transition" onclick="viewAttendanceDetail(${JSON.stringify(row).replace(/"/g, '&quot;')})" title="Klik untuk lihat foto" />` : '-';
-
       return `
         <tr class="hover:bg-slate-50 transition">
           <td class="p-3 font-semibold text-slate-800">${row.date}</td>
           <td class="p-3 font-mono text-xs">${row.clock_in || '-'}</td>
           <td class="p-3 font-mono text-xs">${row.clock_out || '-'}</td>
           <td class="p-3">${statusBadge}</td>
-          <td class="p-3">${photoThumb}</td>
           <td class="p-3 text-xs text-slate-500">${row.distance_in != null ? row.distance_in + 'm' : '-'}</td>
           <td class="p-3 text-xs text-slate-600">${row.notes || '-'}</td>
         </tr>
       `;
     }).join('');
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-red-500">Gagal memuat riwayat.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500">Gagal memuat riwayat.</td></tr>`;
   }
 }
 
@@ -729,16 +737,13 @@ async function loadEmployeeLeaves() {
 
 function placeClockPanelInAdminView() {
   const clockPanel = document.getElementById('panel-emp-clock');
-  const qrPanel = document.getElementById('panel-emp-qr');
   const scanPanel = document.getElementById('panel-emp-scan');
   const container = document.getElementById('admin-myclock-container');
   container.appendChild(clockPanel);
-  if (qrPanel) container.appendChild(qrPanel);
   if (scanPanel) container.appendChild(scanPanel);
 
-  // Default: tampilkan panel status, sembunyikan kartu QR & scanner
+  // Default: tampilkan panel status, sembunyikan scanner
   clockPanel.classList.remove('hidden');
-  if (qrPanel) qrPanel.classList.add('hidden');
   if (scanPanel) scanPanel.classList.add('hidden');
   renderMyQrCode();
 }
@@ -792,10 +797,8 @@ document.getElementById('btn-go-qr-tab').addEventListener('click', () => {
   if (isAdmin) {
     const scanPanel = document.getElementById('panel-emp-scan');
     const clockPanel = document.getElementById('panel-emp-clock');
-    const qrPanel = document.getElementById('panel-emp-qr');
     if (!scanPanel) return;
     clockPanel.classList.add('hidden');
-    if (qrPanel) qrPanel.classList.add('hidden');
     scanPanel.classList.remove('hidden');
     scanPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } else {
@@ -947,8 +950,6 @@ async function loadAdminTodayAttendance() {
                           row.status === 'dispensation' ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">Dispensasi</span>' :
                           '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">Izin</span>';
 
-      const photoThumb = row.photo_in ? `<img src="${row.photo_in}" class="w-8 h-8 rounded-lg object-cover" />` : `<div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center text-xs"><i class="fa-solid fa-user"></i></div>`;
-
       const roleBadge = row.role === 'admin' ? '<span class="text-[9px] bg-indigo-100 text-indigo-800 font-bold px-1 rounded ml-1">Admin</span>' :
                         row.role === 'teacher' ? '<span class="text-[9px] bg-purple-100 text-purple-800 font-bold px-1 rounded ml-1">Guru</span>' : '';
 
@@ -956,7 +957,7 @@ async function loadAdminTodayAttendance() {
         <tr class="hover:bg-slate-50 transition">
           <td class="p-3">
             <div class="flex items-center space-x-3">
-              ${photoThumb}
+              <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-bold"><i class="fa-solid fa-user"></i></div>
               <div>
                 <div class="font-bold text-slate-900">${row.employee_name} ${roleBadge}</div>
                 <div class="text-[11px] font-mono text-slate-500">${row.nip}</div>
@@ -1074,8 +1075,7 @@ document.getElementById('btn-open-print-preview').addEventListener('click', asyn
 
 // 4. Persetujuan Izin & Dispensasi Sekolah
 async function loadAdminLeaves() {
-  const tbody = document.getElementById('table-adm-leaves');
-  tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Memuat data...</td></tr>`;
+  const tbody = document.getElementById('table-adm-leaves');    tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Memuat data...</td></tr>`;
 
   try {
     const res = await fetch('/api/leaves');
@@ -1435,28 +1435,6 @@ window.viewAttendanceDetail = function(att) {
 
   document.getElementById('detail-distance').textContent = `Masuk: ${att.distance_in != null ? att.distance_in + 'm' : '-'} | Pulang: ${att.distance_out != null ? att.distance_out + 'm' : '-'}`;
   document.getElementById('detail-notes').textContent = att.notes || '-';
-
-  const imgIn = document.getElementById('detail-photo-in');
-  const noPhotoIn = document.getElementById('detail-no-photo-in');
-  if (att.photo_in) {
-    imgIn.src = att.photo_in;
-    imgIn.classList.remove('hidden');
-    noPhotoIn.classList.add('hidden');
-  } else {
-    imgIn.classList.add('hidden');
-    noPhotoIn.classList.remove('hidden');
-  }
-
-  const imgOut = document.getElementById('detail-photo-out');
-  const noPhotoOut = document.getElementById('detail-no-photo-out');
-  if (att.photo_out) {
-    imgOut.src = att.photo_out;
-    imgOut.classList.remove('hidden');
-    noPhotoOut.classList.add('hidden');
-  } else {
-    imgOut.classList.add('hidden');
-    noPhotoOut.classList.remove('hidden');
-  }
 
   modal.classList.remove('hidden');
 

@@ -58,7 +58,7 @@ async function call(method, path, opts) {
 
   // 1. Root HTML
   const root = await call('GET', '/');
-  if (root.statusCode !== 200 || !root.body.includes('PresensiKu')) throw new Error('Root gagal: ' + root.statusCode);
+  if (root.statusCode !== 200 || !root.body.includes('Web Absensi')) throw new Error('Root gagal: ' + root.statusCode);
   console.log('OK  GET / ->', root.statusCode);
 
   // 2. Settings API

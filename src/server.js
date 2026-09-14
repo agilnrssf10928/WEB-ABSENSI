@@ -204,7 +204,7 @@ if (require.main === module) {
   const server = http.createServer(handleRequest);
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`====================================================`);
-    console.log(`  PresensiKu - Web Absensi Online`);
+    console.log(`  Web Absensi Sekolah - Sistem Absensi Online`);
     console.log(`  Server aktif pada: http://localhost:${PORT}`);
     console.log(`====================================================`);
   });

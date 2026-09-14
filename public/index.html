@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PresensiKu Sekolah - Sistem Presensi Siswa & Guru Digital</title>
+  <title>Web Absensi Sekolah - Sistem Presensi Siswa & Guru Digital</title>
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -53,7 +53,7 @@
           <i class="fa-solid fa-graduation-cap"></i>
         </div>
         <div>
-          <span class="font-bold text-lg text-slate-900 leading-tight block">PresensiKu Sekolah</span>
+          <span class="font-bold text-lg text-slate-900 leading-tight block">Web Absensi Sekolah</span>
           <span class="text-xs text-slate-500 font-medium" id="header-office-name">SMK Pariwisata Cikarang Selatan</span>
         </div>
       </div>
@@ -92,7 +92,7 @@
           <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-3xl mx-auto shadow-lg shadow-blue-500/30 mb-3">
             <i class="fa-solid fa-graduation-cap"></i>
           </div>
-          <h1 class="text-2xl font-bold text-slate-900">PresensiKu Sekolah</h1>
+          <h1 class="text-2xl font-bold text-slate-900">Web Absensi Sekolah</h1>
           <p class="text-sm text-slate-500 mt-1">Sistem Absensi Siswa & Guru Digital</p>
         </div>
 
@@ -153,10 +153,6 @@
         <button id="tab-emp-leave" class="tab-btn-emp whitespace-nowrap text-slate-500 hover:text-slate-800 pb-2 font-bold text-sm flex items-center space-x-2">
           <i class="fa-solid fa-file-signature"></i>
           <span>Izin, Sakit & Dispensasi</span>
-        </button>
-        <button id="tab-emp-qr" class="tab-btn-emp whitespace-nowrap text-slate-500 hover:text-slate-800 pb-2 font-bold text-sm flex items-center space-x-2">
-          <i class="fa-solid fa-qrcode"></i>
-          <span>Kartu QR Saya</span>
         </button>
       </div>
 
@@ -220,6 +216,26 @@
             <button id="btn-go-qr-tab" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm shadow-md transition">
               <i class="fa-solid fa-qrcode mr-1"></i> Buka Scanner QR Sekarang
             </button>
+
+            <!-- Kartu QR Pribadi (di bawah tombol Buka Scanner QR) -->
+            <div id="my-qr-card" class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+              <h4 class="font-bold text-slate-900 text-sm flex items-center space-x-2">
+                <i class="fa-solid fa-id-card text-indigo-600"></i>
+                <span>QR Absensi Saya</span>
+              </h4>
+              <p class="text-xs text-slate-500">Tunjukkan QR ini ke guru piket/petugas untuk discan — absen masuk & pulang langsung tercatat.</p>
+              <div class="flex justify-center bg-white rounded-xl border border-slate-200 p-4">
+                <div id="my-qr-code" class="bg-white p-2 rounded-xl"></div>
+              </div>
+              <div class="text-center space-y-0.5">
+                <div class="font-bold text-slate-900" id="my-qr-name">-</div>
+                <div class="text-xs text-slate-500" id="my-qr-detail">-</div>
+                <div class="font-mono text-[11px] text-slate-400" id="my-qr-nip">-</div>
+              </div>
+              <button onclick="window.print()" class="w-full py-2.5 bg-white hover:bg-slate-100 text-slate-700 font-bold rounded-xl text-xs border border-slate-200 transition">
+                <i class="fa-solid fa-print mr-1"></i> Cetak Kartu QR Saya
+              </button>
+            </div>
           </div>
         </div>
 
@@ -273,30 +289,6 @@
         </div>
       </div>
 
-      <!-- TAB 4: QR ATTENDANCE PANEL -->
-      <div id="panel-emp-qr" class="hidden max-w-xl mx-auto w-full">
-
-        <!-- Kartu QR Pribadi -->
-        <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
-          <h3 class="font-bold text-slate-900 flex items-center space-x-2">
-            <i class="fa-solid fa-id-card text-indigo-600"></i>
-            <span>QR Absensi Saya</span>
-          </h3>
-          <p class="text-xs text-slate-500">Tunjukkan QR ini ke guru piket/petugas untuk discan — absen masuk & pulang langsung tercatat.</p>
-          <div class="flex justify-center bg-slate-50 rounded-xl border border-slate-200 p-4">
-            <div id="my-qr-code" class="bg-white p-2 rounded-xl"></div>
-          </div>
-          <div class="text-center space-y-0.5">
-            <div class="font-bold text-slate-900" id="my-qr-name">-</div>
-            <div class="text-xs text-slate-500" id="my-qr-detail">-</div>
-            <div class="font-mono text-[11px] text-slate-400" id="my-qr-nip">-</div>
-          </div>
-          <button onclick="window.print()" class="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
-            <i class="fa-solid fa-print mr-1"></i> Cetak Kartu QR Saya
-          </button>
-        </div>
-      </div>
-
       <!-- TAB 5: SCANNER QR PANEL -->
       <div id="panel-emp-scan" class="hidden max-w-xl mx-auto w-full">
         <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
@@ -342,14 +334,13 @@
                   <th class="p-3">Jam Masuk</th>
                   <th class="p-3">Jam Pulang</th>
                   <th class="p-3">Status</th>
-                  <th class="p-3">Metode</th>
                   <th class="p-3">Jarak</th>
                   <th class="p-3">Keterangan</th>
                 </tr>
               </thead>
               <tbody id="table-emp-history" class="divide-y divide-slate-100">
                 <tr>
-                  <td colspan="7" class="p-4 text-center text-slate-400">Memuat data...</td>
+                  <td colspan="6" class="p-4 text-center text-slate-400">Memuat data...</td>
                 </tr>
               </tbody>
             </table>
@@ -629,7 +620,7 @@
                   <th class="p-3">Jam Pulang</th>
                   <th class="p-3">Status</th>
                   <th class="p-3">Jarak ke Gerbang</th>
-                  <th class="p-3">Foto & Detail</th>
+                  <th class="p-3">Detail</th>
                 </tr>
               </thead>
               <tbody id="table-adm-today" class="divide-y divide-slate-100">
@@ -874,23 +865,6 @@
       </div>
 
       <div class="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <span class="text-[11px] font-bold text-slate-500 uppercase block mb-1">Foto Masuk Sekolah</span>
-            <div class="aspect-4/3 bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center">
-              <img id="detail-photo-in" src="" alt="Foto Masuk" class="w-full h-full object-cover hidden" />
-              <span id="detail-no-photo-in" class="text-xs text-slate-400 font-semibold">Tidak ada foto</span>
-            </div>
-          </div>
-          <div>
-            <span class="text-[11px] font-bold text-slate-500 uppercase block mb-1">Foto Pulang Sekolah</span>
-            <div class="aspect-4/3 bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center">
-              <img id="detail-photo-out" src="" alt="Foto Pulang" class="w-full h-full object-cover hidden" />
-              <span id="detail-no-photo-out" class="text-xs text-slate-400 font-semibold">Tidak ada foto</span>
-            </div>
-          </div>
-        </div>
-
         <div class="space-y-2 text-xs bg-slate-50 p-3 rounded-xl border border-slate-100">
           <div class="flex justify-between"><span class="text-slate-500">Nama Lengkap:</span><span class="font-bold text-slate-900" id="detail-name">-</span></div>
           <div class="flex justify-between"><span class="text-slate-500">Tanggal:</span><span class="font-bold text-slate-900" id="detail-date">-</span></div>

@@ -36,7 +36,7 @@ function handleSettingsRoutes(req, res, url, user) {
           late_tolerance_minutes = ?
       WHERE id = 1
     `).run(
-      office_name || 'Kantor Pusat PresensiKu',
+      office_name || 'Web Absensi Sekolah',
       office_lat != null ? Number(office_lat) : -6.3614144,
       office_lng != null ? Number(office_lng) : 107.0540305,
       office_radius_meters != null ? Number(office_radius_meters) : 150,
