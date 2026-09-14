@@ -184,6 +184,23 @@ function initDb() {
       admin_notes TEXT DEFAULT '',
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS parent_children (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      parent_user_id INTEGER NOT NULL REFERENCES users(id),
+      student_user_id INTEGER NOT NULL REFERENCES users(id),
+      UNIQUE(parent_user_id, student_user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id), -- penerima notifikasi
+      title TEXT NOT NULL,
+      body TEXT DEFAULT '',
+      type TEXT DEFAULT 'info', -- 'clock-in', 'clock-out', 'leave', 'info'
+      is_read INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // Seed settings sekolah

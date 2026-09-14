@@ -40,7 +40,7 @@ function handleEmployeeRoutes(req, res, url, user) {
       return res.json({ error: 'Akses ditolak. Khusus Admin Sekolah.' }, 403);
     }
 
-    const { nip, name, email, password, department, position, phone, role = 'student' } = req.body || {};
+    const { nip, name, email, password, department, position, phone, role = 'student', child_nip } = req.body || {};
 
     if (!nip || !name || !email || !password) {
       return res.json({ error: 'NISN / NIP, Nama, Email, dan Password wajib diisi.' }, 400);
@@ -64,11 +64,20 @@ function handleEmployeeRoutes(req, res, url, user) {
       hashPassword(password),
       role,
       department || 'Umum',
-      position || (role === 'student' ? 'Siswa' : 'Guru'),
+      position || (role === 'student' ? 'Siswa' : role === 'parent' ? 'Orang Tua / Wali' : 'Guru'),
       phone || ''
     );
 
-    const created = db.prepare('SELECT id, nip, name, email, role, department, position, phone, is_active FROM users WHERE id = ?').get(result.lastInsertRowid);
+    // Kalau akun orang tua, hubungkan dengan anak (siswa) via NISN
+    const parentId = result.lastInsertRowid;
+    if (role === 'parent' && child_nip) {
+      const child = db.prepare("SELECT id FROM users WHERE nip = ? AND role = 'student'").get(child_nip);
+      if (child) {
+        db.prepare('INSERT OR IGNORE INTO parent_children (parent_user_id, student_user_id) VALUES (?, ?)').run(parentId, child.id);
+      }
+    }
+
+    const created = db.prepare('SELECT id, nip, name, email, role, department, position, phone, is_active FROM users WHERE id = ?').get(parentId);
     return res.json({ success: true, message: 'Data warga sekolah berhasil ditambahkan.', employee: created });
   }
 
@@ -80,7 +89,7 @@ function handleEmployeeRoutes(req, res, url, user) {
     }
 
     const targetId = Number(putMatch[1]);
-    const { name, email, department, position, phone, role, password, is_active } = req.body || {};
+    const { name, email, department, position, phone, role, password, is_active, child_nip } = req.body || {};
 
     const target = db.prepare('SELECT * FROM users WHERE id = ?').get(targetId);
     if (!target) return res.json({ error: 'Data tidak ditemukan.' }, 404);
@@ -111,6 +120,14 @@ function handleEmployeeRoutes(req, res, url, user) {
       targetId
     );
 
+    // Update tautan orang tua-anak bila dikirim
+    if ((role || target.role) === 'parent' && child_nip) {
+      const child = db.prepare("SELECT id FROM users WHERE nip = ? AND role = 'student'").get(child_nip);
+      if (child) {
+        db.prepare('INSERT OR IGNORE INTO parent_children (parent_user_id, student_user_id) VALUES (?, ?)').run(targetId, child.id);
+      }
+    }
+
     const updated = db.prepare('SELECT id, nip, name, email, role, department, position, phone, is_active FROM users WHERE id = ?').get(targetId);
     return res.json({ success: true, message: 'Data berhasil diperbarui.', employee: updated });
   }
@@ -129,6 +146,8 @@ function handleEmployeeRoutes(req, res, url, user) {
 
     db.prepare('DELETE FROM attendances WHERE user_id = ?').run(targetId);
     db.prepare('DELETE FROM leave_requests WHERE user_id = ?').run(targetId);
+    db.prepare('DELETE FROM notifications WHERE user_id = ?').run(targetId);
+    db.prepare('DELETE FROM parent_children WHERE parent_user_id = ? OR student_user_id = ?').run(targetId, targetId);
     db.prepare('DELETE FROM users WHERE id = ?').run(targetId);
 
     return res.json({ success: true, message: 'Data berhasil dihapus.' });

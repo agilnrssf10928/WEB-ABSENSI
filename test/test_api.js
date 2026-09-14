@@ -32,6 +32,11 @@ function request(options, data = null) {
 async function runTests() {
   console.log('--- Starting Web Absensi API Tests (QR-only) ---');
 
+  // NIP & email unik per run supaya tes bisa diulang tanpa konflik data lama
+  const uniq = Date.now().toString().slice(-8);
+  const STUDENT_NIP = '0090' + uniq;
+  const STUDENT_EMAIL = `siswa.uji.${uniq}@sekolah.sch.id`;
+
   // 1. Root HTML
   const rootRes = await request({ hostname: 'localhost', port: TEST_PORT, path: '/', method: 'GET' });
   assert.strictEqual(rootRes.statusCode, 200);
@@ -85,9 +90,9 @@ async function runTests() {
       headers: { Authorization: `Bearer ${adminToken}` }
     },
     {
-      nip: '0090000001',
+      nip: STUDENT_NIP,
       name: 'Siswa Uji QR',
-      email: 'siswa.uji@sekolah.sch.id',
+      email: STUDENT_EMAIL,
       password: 'siswa123',
       department: 'X TKJ 1',
       position: 'Siswa',
@@ -102,7 +107,7 @@ async function runTests() {
   // 7. Login siswa baru
   const studentLogin = await request(
     { hostname: 'localhost', port: TEST_PORT, path: '/api/auth/login', method: 'POST' },
-    { email: 'siswa.uji@sekolah.sch.id', password: 'siswa123' }
+    { email: STUDENT_EMAIL, password: 'siswa123' }
   );
   assert.strictEqual(studentLogin.statusCode, 200);
   const studentToken = studentLogin.bodyJson.token;
@@ -122,7 +127,7 @@ async function runTests() {
       method: 'POST',
       headers: { Authorization: `Bearer ${studentToken}` }
     },
-    { qr_data: 'USER_ID:0090000001', lat: -6.3614144, lng: 107.0540305 }
+    { qr_data: `USER_ID:${STUDENT_NIP}`, lat: -6.3614144, lng: 107.0540305 }
   );
   assert.strictEqual(scanStudent.statusCode, 403, JSON.stringify(scanStudent.bodyJson));
   console.log('✓ Test 9 Passed: Student account cannot scan QR (403)');
@@ -136,7 +141,7 @@ async function runTests() {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}` }
     },
-    { qr_data: 'USER_ID:0090000001', lat: -6.3614144, lng: 107.0540305, mode: 'in' }
+    { qr_data: `USER_ID:${STUDENT_NIP}`, lat: -6.3614144, lng: 107.0540305, mode: 'in' }
   );
   assert.strictEqual(scanIn.statusCode, 200, JSON.stringify(scanIn.bodyJson));
   assert.strictEqual(scanIn.bodyJson.action, 'clock-in');
@@ -152,7 +157,7 @@ async function runTests() {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}` }
     },
-    { qr_data: 'USER_ID:0090000001', mode: 'out' }
+    { qr_data: `USER_ID:${STUDENT_NIP}`, mode: 'out' }
   );
   assert.strictEqual(scanOut.statusCode, 200, JSON.stringify(scanOut.bodyJson));
   assert.strictEqual(scanOut.bodyJson.action, 'clock-out');
@@ -167,7 +172,7 @@ async function runTests() {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}` }
     },
-    { qr_data: 'USER_ID:0090000001', mode: 'out' }
+    { qr_data: `USER_ID:${STUDENT_NIP}`, mode: 'out' }
   );
   assert.strictEqual(scanOutAgain.statusCode, 400, JSON.stringify(scanOutAgain.bodyJson));
   console.log('✓ Test 9d Passed: Double clock-out rejected (400)');

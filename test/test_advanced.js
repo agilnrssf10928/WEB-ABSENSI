@@ -27,6 +27,11 @@ function request(options, data = null) {
 async function runAdvancedTests() {
   console.log('--- Starting Advanced Workflow Tests (QR-only) ---');
 
+  // Data unik per run supaya tes bisa diulang tanpa konflik data lama
+  const uniq = Date.now().toString().slice(-8);
+  const RIAN_NIP = '0098' + uniq;
+  const PARENT_NIP = 'ortu' + uniq;
+
   // Login admin agil
   const adminLogin = await request(
     { hostname: 'localhost', port: TEST_PORT, path: '/api/auth/login', method: 'POST' },
@@ -59,9 +64,9 @@ async function runAdvancedTests() {
       headers: { Authorization: `Bearer ${adminToken}` }
     },
     {
-      nip: '0098765432', // NISN
+      nip: RIAN_NIP, // NISN
       name: 'Rian Pratama',
-      email: 'rian@sekolah.sch.id',
+      email: `rian.${uniq}@sekolah.sch.id`,
       password: 'password123',
       department: 'X MIPA 1', // Kelas
       position: 'Siswa',
@@ -70,14 +75,14 @@ async function runAdvancedTests() {
     }
   );
   assert.strictEqual(newStudentRes.statusCode, 200);
-  assert.strictEqual(newStudentRes.bodyJson.employee.nip, '0098765432');
+  assert.strictEqual(newStudentRes.bodyJson.employee.nip, RIAN_NIP);
   const newStudentId = newStudentRes.bodyJson.employee.id;
   console.log('✓ Advanced 2: Admin registered new student Rian Pratama (ID:', newStudentId, ')');
 
   // 3. Test login dengan akun siswa baru
   const rianLogin = await request(
     { hostname: 'localhost', port: TEST_PORT, path: '/api/auth/login', method: 'POST' },
-    { email: 'rian@sekolah.sch.id', password: 'password123' }
+    { email: `rian.${uniq}@sekolah.sch.id`, password: 'password123' }
   );
   assert.strictEqual(rianLogin.statusCode, 200);
   assert.strictEqual(rianLogin.bodyJson.user.name, 'Rian Pratama');
@@ -93,7 +98,7 @@ async function runAdvancedTests() {
       method: 'POST',
       headers: { Authorization: `Bearer ${rianToken}` }
     },
-    { qr_data: 'USER_ID:0098765432' }
+    { qr_data: `USER_ID:${RIAN_NIP}` }
   );
   assert.strictEqual(rianCardScan.statusCode, 403, JSON.stringify(rianCardScan.bodyJson));
   console.log('✓ Advanced 4: Student cannot scan QR (403, only teachers/admins)');
@@ -109,7 +114,32 @@ async function runAdvancedTests() {
   assert.strictEqual(rianEmpList.statusCode, 403, JSON.stringify(rianEmpList.bodyJson));
   console.log('✓ Advanced 4b: Student cannot view student QR list (403)');
 
-  // 5a. Admin scan kartu Rian mode 'in' -> absen masuk Rian
+  // 5. Admin membuat akun ORANG TUA tertaut ke Rian — SEBELUM scan agar notifikasi terkirim
+  const parentRes = await request(
+    {
+      hostname: 'localhost',
+      port: TEST_PORT,
+      path: '/api/employees',
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` }
+    },
+    {
+      nip: PARENT_NIP,
+      name: 'Bapak Rian',
+      email: `ortu.rian.${uniq}@sekolah.sch.id`,
+      password: 'ortu12345',
+      department: 'Wali Murid',
+      position: 'Orang Tua / Wali',
+      phone: '081200011122',
+      role: 'parent',
+      child_nip: RIAN_NIP
+    }
+  );
+  assert.strictEqual(parentRes.statusCode, 200, JSON.stringify(parentRes.bodyJson));
+  assert.strictEqual(parentRes.bodyJson.employee.role, 'parent');
+  console.log('✓ Advanced 5: Parent account created and linked to child');
+
+  // 5a. Admin scan kartu Rian mode 'in' -> absen masuk Rian (memicu notifikasi ke orang tua)
   const adminScanIn = await request(
     {
       hostname: 'localhost',
@@ -118,14 +148,14 @@ async function runAdvancedTests() {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}` }
     },
-    { qr_data: 'USER_ID:0098765432', mode: 'in' }
+    { qr_data: `USER_ID:${RIAN_NIP}`, mode: 'in' }
   );
   assert.strictEqual(adminScanIn.statusCode, 200, JSON.stringify(adminScanIn.bodyJson));
   assert.strictEqual(adminScanIn.bodyJson.action, 'clock-in');
   assert.strictEqual(adminScanIn.bodyJson.user.name, 'Rian Pratama');
   console.log('✓ Advanced 5a: Admin scanned student card for clock-in');
 
-  // 5b. Admin scan kartu Rian mode 'out' -> absen pulang Rian
+  // 5b. Admin scan kartu Rian mode 'out' -> absen pulang Rian (memicu notifikasi ke orang tua)
   const adminScanRian = await request(
     {
       hostname: 'localhost',
@@ -134,7 +164,7 @@ async function runAdvancedTests() {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}` }
     },
-    { qr_data: 'USER_ID:0098765432', mode: 'out' }
+    { qr_data: `USER_ID:${RIAN_NIP}`, mode: 'out' }
   );
   assert.strictEqual(adminScanRian.statusCode, 200, JSON.stringify(adminScanRian.bodyJson));
   assert.strictEqual(adminScanRian.bodyJson.action, 'clock-out');
@@ -163,6 +193,68 @@ async function runAdvancedTests() {
   assert.strictEqual(updateSettings.statusCode, 200);
   assert.strictEqual(updateSettings.bodyJson.settings.office_name, 'SMK Pariwisata Digital Unggulan');
   console.log('✓ Advanced 6: School settings update verified');
+
+  // 8. Orang tua login
+  const parentLogin = await request(
+    { hostname: 'localhost', port: TEST_PORT, path: '/api/auth/login', method: 'POST' },
+    { email: `ortu.rian.${uniq}@sekolah.sch.id`, password: 'ortu12345' }
+  );
+  assert.strictEqual(parentLogin.statusCode, 200);
+  const parentToken = parentLogin.bodyJson.token;
+  console.log('✓ Advanced 9: Parent can login');
+
+  // 9. Orang tua melihat data anak + jam datang/pulang hari ini
+  const childrenRes = await request({
+    hostname: 'localhost',
+    port: TEST_PORT,
+    path: '/api/parent/children',
+    method: 'GET',
+    headers: { Authorization: `Bearer ${parentToken}` }
+  });
+  assert.strictEqual(childrenRes.statusCode, 200, JSON.stringify(childrenRes.bodyJson));
+  assert.strictEqual(childrenRes.bodyJson.children.length, 1);
+  assert.strictEqual(childrenRes.bodyJson.children[0].name, 'Rian Pratama');
+  assert.ok(childrenRes.bodyJson.children[0].clock_in, 'clock_in should exist after scans');
+  assert.ok(childrenRes.bodyJson.children[0].clock_out, 'clock_out should exist after scans');
+  console.log('✓ Advanced 10: Parent sees child with clock-in', childrenRes.bodyJson.children[0].clock_in, 'and clock-out', childrenRes.bodyJson.children[0].clock_out);
+
+  // 10. Notifikasi masuk untuk orang tua (datang & pulang anaknya)
+  const notifRes = await request({
+    hostname: 'localhost',
+    port: TEST_PORT,
+    path: '/api/notifications',
+    method: 'GET',
+    headers: { Authorization: `Bearer ${parentToken}` }
+  });
+  assert.strictEqual(notifRes.statusCode, 200);
+  const notifTitles = notifRes.bodyJson.notifications.map(n => n.title).join(' | ');
+  assert.ok(notifTitles.includes('Rian Pratama Datang Sekolah'), 'should have clock-in notification');
+  assert.ok(notifTitles.includes('Rian Pratama Pulang Sekolah'), 'should have clock-out notification');
+  console.log('✓ Advanced 11: Parent received clock-in & clock-out notifications');
+
+  // 11. Orang tua tidak bisa lihat riwayat anak orang lain
+  const forbidden = await request({
+    hostname: 'localhost',
+    port: TEST_PORT,
+    path: `/api/parent/children/999/history`,
+    method: 'GET',
+    headers: { Authorization: `Bearer ${parentToken}` }
+  });
+  assert.strictEqual(forbidden.statusCode, 403);
+  console.log('✓ Advanced 12: Parent cannot access other children history (403)');
+
+  // 12. Bersihkan akun orang tua uji coba
+  const parentDelete = await request(
+    {
+      hostname: 'localhost',
+      port: TEST_PORT,
+      path: '/api/employees/' + parentRes.bodyJson.employee.id,
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${adminToken}` }
+    }
+  );
+  assert.strictEqual(parentDelete.statusCode, 200);
+  console.log('✓ Advanced 13: Test parent account deleted');
 
   // 7. Admin menghapus data siswa uji coba
   const deleteRes = await request(

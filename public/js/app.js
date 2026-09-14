@@ -130,7 +130,8 @@ async function renderApp() {
   document.getElementById('nav-user-name').textContent = user.name;
   
   const roleLabel = user.role === 'admin' ? 'KEPALA SEKOLAH / ADMIN' :
-                    user.role === 'teacher' ? 'DEWAN GURU' : 'SISWA';
+                    user.role === 'teacher' ? 'DEWAN GURU' :
+                    user.role === 'parent' ? 'ORANG TUA / WALI' : 'SISWA';
   document.getElementById('nav-user-role').textContent = roleLabel;
   document.getElementById('nav-user-dept').textContent = `• ${user.department}`;
   document.getElementById('view-login').classList.add('hidden');
@@ -144,8 +145,13 @@ async function renderApp() {
   } else {
     document.getElementById('view-admin').classList.add('hidden');
     document.getElementById('view-employee').classList.remove('hidden');
-    switchEmployeeTab('clock');
+    if (user.role === 'parent') {
+      switchEmployeeTab('parent');
+    } else {
+      switchEmployeeTab('clock');
+    }
     initEmployeePortal();
+    renderParentView();
   }
 }
 
@@ -295,6 +301,11 @@ function switchEmployeeTab(tabName) {
   // Siswa tidak bisa scan — panel scanner disembunyikan untuk role student
   const isStudentView = state.currentUser && state.currentUser.role === 'student';
   document.getElementById('panel-emp-scan').classList.toggle('hidden', tabName !== 'scan' || isStudentView);
+
+  // Panel khusus orang tua
+  const parentPanel = document.getElementById('panel-emp-parent');
+  if (parentPanel) parentPanel.classList.toggle('hidden', tabName !== 'parent');
+  if (tabName === 'parent') loadParentChildren();
 
   // Animasi masuk panel yang aktif
   const activePanel = document.getElementById(`panel-emp-${tabName}`);
@@ -1485,11 +1496,18 @@ async function loadAdminEmployees() {
   }
 }
 
+function toggleChildNipField() {
+  const role = document.getElementById('emp-form-role').value;
+  document.getElementById('emp-form-child-wrap').classList.toggle('hidden', role !== 'parent');
+}
+document.getElementById('emp-form-role').addEventListener('change', toggleChildNipField);
+
 document.getElementById('btn-modal-add-emp').addEventListener('click', () => {
   document.getElementById('modal-emp-title').innerHTML = `<i class="fa-solid fa-user-plus text-blue-600"></i> <span>Tambah Siswa / Guru Baru</span>`;
   document.getElementById('form-save-employee').reset();
   document.getElementById('emp-form-id').value = '';
   document.getElementById('emp-form-nip').disabled = false;
+  toggleChildNipField();
   document.getElementById('modal-employee-form').classList.remove('hidden');
 });
 
@@ -1505,6 +1523,8 @@ window.openEditEmployeeModal = function(emp) {
   document.getElementById('emp-form-position').value = emp.position;
   document.getElementById('emp-form-phone').value = emp.phone || '';
   document.getElementById('emp-form-role').value = emp.role;
+  document.getElementById('emp-form-child-nip').value = '';
+  toggleChildNipField();
   document.getElementById('modal-employee-form').classList.remove('hidden');
 };
 
@@ -1523,6 +1543,9 @@ document.getElementById('form-save-employee').addEventListener('submit', async e
     phone: document.getElementById('emp-form-phone').value,
     role: document.getElementById('emp-form-role').value
   };
+
+  const childNip = document.getElementById('emp-form-child-nip').value.trim();
+  if (payload.role === 'parent' && childNip) payload.child_nip = childNip;
 
   try {
     const url = isEdit ? `/api/employees/${id}` : '/api/employees';

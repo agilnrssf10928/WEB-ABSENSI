@@ -1,5 +1,6 @@
 const { db } = require('../db');
 const { calculateDistance, getNowFormatted, evaluateStatus } = require('../utils');
+const { notifyAttendance } = require('./notifications');
 
 function handleAttendanceRoutes(req, res, url, user) {
   // GET /api/attendance/today (Untuk semua pengguna: Siswa, Guru, dan Admin)
@@ -66,6 +67,7 @@ function handleAttendanceRoutes(req, res, url, user) {
         `);
         const result = stmt.run(targetUser.id, now.date, now.time, status, 'Presensi via Scan Kartu Pelajar/Guru');
         const saved = db.prepare('SELECT * FROM attendances WHERE id = ?').get(result.lastInsertRowid);
+        notifyAttendance(targetUser, 'clock-in', now.time);
 
         return res.json({
           success: true,
@@ -94,6 +96,7 @@ function handleAttendanceRoutes(req, res, url, user) {
         `).run(now.time, existing.id);
 
         const updated = db.prepare('SELECT * FROM attendances WHERE id = ?').get(existing.id);
+        notifyAttendance(targetUser, 'clock-out', now.time);
 
         return res.json({
           success: true,

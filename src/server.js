@@ -9,6 +9,8 @@ const handleAttendanceRoutes = require('./routes/attendance');
 const handleEmployeeRoutes = require('./routes/employees');
 const handleLeaveRoutes = require('./routes/leaves');
 const handleSettingsRoutes = require('./routes/settings');
+const { handleNotificationRoutes } = require('./routes/notifications');
+const { handleParentRoutes } = require('./routes/parent');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, '../public');
@@ -124,6 +126,8 @@ async function handleRequest(req, res) {
     if (handleEmployeeRoutes(req, res, url, currentUser) || res.writableEnded) return;
     if (handleLeaveRoutes(req, res, url, currentUser) || res.writableEnded) return;
     if (handleSettingsRoutes(req, res, url, currentUser) || res.writableEnded) return;
+    if (handleNotificationRoutes(req, res, url, currentUser) || res.writableEnded) return;
+    if (handleParentRoutes(req, res, url, currentUser) || res.writableEnded) return;
 
     if (!res.writableEnded) {
       return res.json({ error: `API route ${req.method} ${url.pathname} tidak ditemukan` }, 404);
