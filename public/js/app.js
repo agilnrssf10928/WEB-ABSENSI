@@ -1,0 +1,1510 @@
+// ========================================================
+// PresensiKu Sekolah - Client Application Script
+// ========================================================
+
+const state = {
+  currentUser: null,
+  officeSettings: null,
+  userCoords: null,
+  webcamStream: null,
+  webcamFacing: 'user',
+  currentSnapshot: null,
+  maps: {
+    emp: null,
+    admin: null,
+    detail: null
+  },
+  trendChart: null
+};
+
+// ========================================================
+// UTILS & HELPERS
+// ========================================================
+
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+
+  const iconClass = type === 'success' ? 'fa-circle-check text-emerald-500' :
+                    type === 'error' ? 'fa-triangle-exclamation text-red-500' :
+                    'fa-circle-info text-blue-500';
+
+  toast.innerHTML = `
+    <i class="fa-solid ${iconClass} text-lg"></i>
+    <div class="flex-1">${message}</div>
+  `;
+
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(100%)';
+    toast.style.transition = 'all 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
+}
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
+  const R = 6371e3; // meters
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
+function formatIndoDate(dateStr) {
+  if (!dateStr) return '-';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = error => reject(error);
+  });
+}
+
+// Live Clock
+function startClock() {
+  function update() {
+    const now = new Date();
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const day = days[now.getDay()];
+    const date = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    const time = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    const el = document.getElementById('live-datetime');
+    if (el) el.textContent = `${day}, ${date} • ${time} WIB`;
+  }
+  update();
+  setInterval(update, 1000);
+}
+
+// ========================================================
+// AUTHENTICATION & NAVIGATION
+// ========================================================
+
+async function checkAuth() {
+  try {
+    const res = await fetch('/api/auth/me');
+    const data = await res.json();
+    if (data.success && data.user) {
+      state.currentUser = data.user;
+      renderApp();
+    } else {
+      showLoginView();
+    }
+  } catch (err) {
+    showLoginView();
+  }
+}
+
+function showLoginView() {
+  stopCamera();
+  state.currentUser = null;
+  document.getElementById('main-header').classList.add('hidden');
+  document.getElementById('view-login').classList.remove('hidden');
+  document.getElementById('view-employee').classList.add('hidden');
+  document.getElementById('view-admin').classList.add('hidden');
+}
+
+async function renderApp() {
+  const user = state.currentUser;
+  if (!user) return showLoginView();
+
+  // Update Header
+  document.getElementById('main-header').classList.remove('hidden');
+  document.getElementById('nav-user-name').textContent = user.name;
+  
+  const roleLabel = user.role === 'admin' ? 'KEPALA SEKOLAH / ADMIN' :
+                    user.role === 'teacher' ? 'DEWAN GURU' : 'SISWA';
+  document.getElementById('nav-user-role').textContent = roleLabel;
+  document.getElementById('nav-user-dept').textContent = `• ${user.department}`;
+  document.getElementById('view-login').classList.add('hidden');
+
+  await loadSettings();
+
+  if (user.role === 'admin') {
+    document.getElementById('view-employee').classList.add('hidden');
+    document.getElementById('view-admin').classList.remove('hidden');
+    switchAdminTab('dash');
+  } else {
+    document.getElementById('view-admin').classList.add('hidden');
+    document.getElementById('view-employee').classList.remove('hidden');
+    switchEmployeeTab('clock');
+    initEmployeePortal();
+  }
+}
+
+async function loadSettings() {
+  try {
+    const res = await fetch('/api/settings');
+    const data = await res.json();
+    if (data.success && data.settings) {
+      state.officeSettings = data.settings;
+      document.getElementById('header-office-name').textContent = data.settings.office_name;
+    }
+  } catch (err) {
+    console.error('Gagal memuat pengaturan:', err);
+  }
+}
+
+// Quick Demo Login (School accounts)
+document.querySelectorAll('.btn-quick-login').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.getElementById('login-email').value = btn.dataset.email;
+    document.getElementById('login-password').value = btn.dataset.pass;
+    document.getElementById('form-login').dispatchEvent(new Event('submit'));
+  });
+});
+
+// Form Login Submit
+document.getElementById('form-login').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = document.getElementById('btn-submit-login');
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+
+  btn.disabled = true;
+  btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Memproses...`;
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      showToast(`Selamat datang di PresensiKu Sekolah, ${data.user.name}!`, 'success');
+      state.currentUser = data.user;
+      renderApp();
+    } else {
+      showToast(data.error || 'Login gagal, periksa email & password', 'error');
+    }
+  } catch (err) {
+    showToast('Terjadi kesalahan koneksi server', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<span>Masuk Sekarang</span> <i class="fa-solid fa-arrow-right text-xs"></i>`;
+  }
+});
+
+// Logout
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  try {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    showToast('Anda telah keluar.', 'info');
+  } catch (e) {}
+  showLoginView();
+});
+
+// Toggle Password
+document.getElementById('btn-toggle-password').addEventListener('click', () => {
+  const input = document.getElementById('login-password');
+  const icon = document.getElementById('eye-icon');
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.classList.replace('fa-eye', 'fa-eye-slash');
+  } else {
+    input.type = 'password';
+    icon.classList.replace('fa-eye-slash', 'fa-eye');
+  }
+});
+
+// ========================================================
+// EMPLOYEE / STUDENT / TEACHER PORTAL LOGIC
+// ========================================================
+
+function placeClockPanelInStudentView() {
+  const clockPanel = document.getElementById('panel-emp-clock');
+  const studentView = document.getElementById('view-employee');
+  const historyPanel = document.getElementById('panel-emp-history');
+  studentView.insertBefore(clockPanel, historyPanel);
+}
+
+function switchEmployeeTab(tabName) {
+  document.querySelectorAll('.tab-btn-emp').forEach(b => {
+    b.classList.remove('active', 'text-blue-600', 'border-b-2', 'border-blue-600');
+    b.classList.add('text-slate-500');
+  });
+
+  const activeBtn = document.getElementById(`tab-emp-${tabName}`);
+  if (activeBtn) {
+    activeBtn.classList.add('active', 'text-blue-600', 'border-b-2', 'border-blue-600');
+    activeBtn.classList.remove('text-slate-500');
+  }
+
+  placeClockPanelInStudentView();
+
+  document.getElementById('panel-emp-clock').classList.toggle('hidden', tabName !== 'clock');
+  document.getElementById('panel-emp-history').classList.toggle('hidden', tabName !== 'history');
+  document.getElementById('panel-emp-leave').classList.toggle('hidden', tabName !== 'leave');
+
+  if (tabName === 'clock') {
+    startCamera();
+    initGeolocation();
+    loadTodayAttendance();
+    if (state.maps.emp) setTimeout(() => state.maps.emp.invalidateSize(), 300);
+  } else {
+    stopCamera();
+  }
+
+  if (tabName === 'history') loadEmployeeHistory();
+  if (tabName === 'leave') loadEmployeeLeaves();
+}
+
+document.getElementById('tab-emp-clock').addEventListener('click', () => switchEmployeeTab('clock'));
+document.getElementById('tab-emp-history').addEventListener('click', () => switchEmployeeTab('history'));
+document.getElementById('tab-emp-leave').addEventListener('click', () => switchEmployeeTab('leave'));
+
+async function initEmployeePortal() {
+  await loadTodayAttendance();
+  initGeolocation();
+}
+
+async function loadTodayAttendance() {
+  try {
+    const res = await fetch('/api/attendance/today');
+    const data = await res.json();
+    if (!data.success) return;
+
+    const todayDate = data.currentDate;
+    document.getElementById('today-date-text').textContent = formatIndoDate(todayDate);
+
+    const att = data.attendance;
+    const settings = data.settings || state.officeSettings;
+    state.officeSettings = settings;
+
+    // Reset button states
+    const btnClockIn = document.getElementById('btn-clock-in');
+    const btnClockOut = document.getElementById('btn-clock-out');
+    const boxCompleted = document.getElementById('box-clock-completed');
+    const statusBadge = document.getElementById('today-status-badge');
+
+    btnClockIn.classList.add('hidden');
+    btnClockOut.classList.add('hidden');
+    boxCompleted.classList.add('hidden');
+
+    if (!att) {
+      // Belum absen masuk
+      statusBadge.className = 'px-4 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 flex items-center space-x-2';
+      statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500"></span><span>Belum Absen Masuk Sekolah</span>`;
+      btnClockIn.classList.remove('hidden');
+
+      document.getElementById('val-clock-in').textContent = '--:--:--';
+      document.getElementById('val-clock-out').textContent = '--:--:--';
+    } else if (att.clock_in && !att.clock_out) {
+      // Sudah masuk, belum pulang
+      const isLate = att.status === 'late';
+      statusBadge.className = isLate
+        ? 'px-4 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 flex items-center space-x-2'
+        : 'px-4 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 flex items-center space-x-2';
+      statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full ${isLate ? 'bg-amber-500' : 'bg-emerald-500'}"></span><span>${isLate ? 'Hadir (Terlambat Masuk)' : 'Hadir Tepat Waktu'}</span>`;
+
+      document.getElementById('val-clock-in').textContent = att.clock_in;
+      document.getElementById('val-clock-out').textContent = '--:--:--';
+      btnClockOut.classList.remove('hidden');
+    } else if (att.clock_in && att.clock_out) {
+      // Sudah lengkap
+      statusBadge.className = 'px-4 py-1.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 flex items-center space-x-2';
+      statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-blue-500"></span><span>Presensi Sekolah Lengkap</span>`;
+
+      document.getElementById('val-clock-in').textContent = att.clock_in;
+      document.getElementById('val-clock-out').textContent = att.clock_out;
+      boxCompleted.classList.remove('hidden');
+    }
+
+    if (settings) {
+      document.getElementById('sub-clock-in').textContent = `Bel Masuk: ${settings.work_start_time} WIB`;
+      document.getElementById('sub-clock-out').textContent = `Bel Pulang: ${settings.work_end_time} WIB`;
+      document.getElementById('sub-distance').textContent = `Radius gerbang: ${settings.office_radius_meters}m`;
+      document.getElementById('map-office-label').textContent = settings.office_name;
+    }
+  } catch (err) {
+    console.error('Gagal mengambil status presensi:', err);
+  }
+}
+
+// ========================================================
+// WEBCAM & CAMERA
+// ========================================================
+
+async function startCamera() {
+  const video = document.getElementById('camera-feed');
+  const fallbackBox = document.getElementById('camera-fallback-box');
+  const preview = document.getElementById('camera-snapshot-preview');
+  const guide = document.getElementById('camera-guide');
+  const btnRetake = document.getElementById('btn-retake-photo');
+
+  preview.classList.add('hidden');
+  guide.classList.remove('hidden');
+  btnRetake.classList.add('hidden');
+  video.classList.remove('hidden');
+  state.currentSnapshot = null;
+
+  if (state.webcamStream) {
+    stopCamera();
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: state.webcamFacing,
+        width: { ideal: 640 },
+        height: { ideal: 480 }
+      },
+      audio: false
+    });
+    state.webcamStream = stream;
+    video.srcObject = stream;
+    fallbackBox.classList.add('hidden');
+  } catch (err) {
+    console.warn('Webcam tidak dapat diakses:', err);
+    fallbackBox.classList.remove('hidden');
+  }
+}
+
+function stopCamera() {
+  if (state.webcamStream) {
+    state.webcamStream.getTracks().forEach(track => track.stop());
+    state.webcamStream = null;
+  }
+}
+
+function captureSnapshot() {
+  const video = document.getElementById('camera-feed');
+  const canvas = document.getElementById('camera-canvas');
+  const preview = document.getElementById('camera-snapshot-preview');
+  const guide = document.getElementById('camera-guide');
+  const btnRetake = document.getElementById('btn-retake-photo');
+
+  if (state.currentSnapshot) return state.currentSnapshot;
+
+  if (!state.webcamStream || video.videoWidth === 0) {
+    const fileInput = document.getElementById('fallback-photo-input');
+    if (fileInput.files && fileInput.files[0]) {
+      return state.currentSnapshot;
+    }
+    return null;
+  }
+
+  canvas.width = video.videoWidth || 640;
+  canvas.height = video.videoHeight || 480;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+  state.currentSnapshot = dataUrl;
+
+  video.classList.add('hidden');
+  guide.classList.add('hidden');
+  preview.src = dataUrl;
+  preview.classList.remove('hidden');
+  btnRetake.classList.remove('hidden');
+
+  return dataUrl;
+}
+
+document.getElementById('btn-retake-photo').addEventListener('click', () => {
+  startCamera();
+});
+
+document.getElementById('btn-switch-camera').addEventListener('click', () => {
+  state.webcamFacing = state.webcamFacing === 'user' ? 'environment' : 'user';
+  startCamera();
+});
+
+document.getElementById('fallback-photo-input').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (file) {
+    state.currentSnapshot = await fileToBase64(file);
+    showToast('Foto selfie berhasil dipilih', 'success');
+  }
+});
+
+// ========================================================
+// GEOLOCATION & MAP
+// ========================================================
+
+function initGeolocation() {
+  const coordsLabel = document.getElementById('map-user-coords');
+  const distLabel = document.getElementById('val-distance');
+  const radiusBadge = document.getElementById('map-radius-badge');
+  const radiusBox = document.getElementById('radius-status-box');
+
+  if (!navigator.geolocation) {
+    coordsLabel.textContent = 'Geolocation tidak didukung browser';
+    return;
+  }
+
+  coordsLabel.textContent = 'Mencari lokasi GPS...';
+
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      state.userCoords = { lat, lng };
+
+      coordsLabel.textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+      const settings = state.officeSettings;
+      if (settings && settings.office_lat && settings.office_lng) {
+        const dist = calculateDistance(lat, lng, settings.office_lat, settings.office_lng);
+        distLabel.textContent = `${dist} meter`;
+
+        const within = !settings.enable_radius_restriction || dist <= settings.office_radius_meters;
+        if (within) {
+          radiusBox.className = 'flex items-center justify-between p-2 rounded-lg bg-emerald-50 border border-emerald-100';
+          radiusBadge.className = 'font-bold text-emerald-700';
+          radiusBadge.textContent = 'Di Area Gerbang Sekolah';
+        } else {
+          radiusBox.className = 'flex items-center justify-between p-2 rounded-lg bg-red-50 border border-red-100';
+          radiusBadge.className = 'font-bold text-red-700';
+          radiusBadge.textContent = `Di Luar Radius (${dist}m > ${settings.office_radius_meters}m)`;
+        }
+
+        renderEmployeeMap(lat, lng, settings);
+      }
+    },
+    err => {
+      console.warn('GPS Error:', err);
+      coordsLabel.textContent = 'GPS diblokir / tidak aktif';
+      distLabel.textContent = 'Lokasi gagal didapat';
+      if (state.officeSettings) {
+        renderEmployeeMap(state.officeSettings.office_lat, state.officeSettings.office_lng, state.officeSettings);
+      }
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+document.getElementById('btn-refresh-gps').addEventListener('click', () => {
+  initGeolocation();
+  showToast('Memperbarui koordinat lokasi GPS...', 'info');
+});
+
+function renderEmployeeMap(userLat, userLng, settings) {
+  const container = document.getElementById('emp-map');
+  if (!container) return;
+
+  if (state.maps.emp) {
+    state.maps.emp.remove();
+  }
+
+  const map = L.map('emp-map').setView([settings.office_lat, settings.office_lng], 16);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+
+  // Office / School Circle
+  L.circle([settings.office_lat, settings.office_lng], {
+    color: '#2563eb',
+    fillColor: '#3b82f6',
+    fillOpacity: 0.15,
+    radius: settings.office_radius_meters
+  }).addTo(map);
+
+  L.marker([settings.office_lat, settings.office_lng])
+    .addTo(map)
+    .bindPopup(`<b>${settings.office_name}</b><br>Radius Gerbang: ${settings.office_radius_meters}m`);
+
+  if (userLat && userLng) {
+    const userMarker = L.circleMarker([userLat, userLng], {
+      color: '#ef4444',
+      fillColor: '#ef4444',
+      fillOpacity: 0.8,
+      radius: 8
+    }).addTo(map);
+    userMarker.bindPopup('<b>Posisi Anda Saat Ini</b>').openPopup();
+  }
+
+  state.maps.emp = map;
+}
+
+// ========================================================
+// CLOCK IN & CLOCK OUT ACTION
+// ========================================================
+
+document.getElementById('btn-clock-in').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-clock-in');
+  let photo = captureSnapshot();
+
+  if (!photo) {
+    showToast('Harap aktifkan kamera atau unggah foto selfie verifikasi!', 'error');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Memvalidasi Absen Masuk...`;
+
+  try {
+    const payload = {
+      photo,
+      lat: state.userCoords ? state.userCoords.lat : null,
+      lng: state.userCoords ? state.userCoords.lng : null,
+      notes: document.getElementById('attendance-notes').value
+    };
+
+    const res = await fetch('/api/attendance/clock-in', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message, 'success');
+      await loadTodayAttendance();
+      if (state.currentUser && state.currentUser.role === 'admin') {
+        loadAdminDashboard();
+      }
+    } else {
+      showToast(data.error || 'Absen masuk gagal', 'error');
+    }
+  } catch (err) {
+    showToast('Terjadi kesalahan saat memproses absensi', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<i class="fa-solid fa-right-to-bracket text-lg"></i> <span>ABSEN MASUK SEKOLAH SEKARANG</span>`;
+  }
+});
+
+document.getElementById('btn-clock-out').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-clock-out');
+  let photo = captureSnapshot();
+
+  btn.disabled = true;
+  btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Memvalidasi Absen Pulang...`;
+
+  try {
+    const payload = {
+      photo,
+      lat: state.userCoords ? state.userCoords.lat : null,
+      lng: state.userCoords ? state.userCoords.lng : null,
+      notes: document.getElementById('attendance-notes').value
+    };
+
+    const res = await fetch('/api/attendance/clock-out', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message, 'success');
+      await loadTodayAttendance();
+      if (state.currentUser && state.currentUser.role === 'admin') {
+        loadAdminDashboard();
+      }
+    } else {
+      showToast(data.error || 'Absen pulang gagal', 'error');
+    }
+  } catch (err) {
+    showToast('Terjadi kesalahan saat memproses absensi pulang', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<i class="fa-solid fa-right-from-bracket text-lg"></i> <span>ABSEN PULANG SEKOLAH SEKARANG</span>`;
+  }
+});
+
+// ========================================================
+// EMPLOYEE / STUDENT HISTORY & LEAVES
+// ========================================================
+
+async function loadEmployeeHistory() {
+  const monthInput = document.getElementById('emp-history-month');
+  if (!monthInput.value) {
+    const now = new Date();
+    monthInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  const tbody = document.getElementById('table-emp-history');
+  tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Memuat data...</td></tr>`;
+
+  try {
+    const res = await fetch(`/api/attendance/history?month=${monthInput.value}`);
+    const data = await res.json();
+
+    if (!data.success || !data.attendances || data.attendances.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400">Belum ada catatan presensi pada bulan ini.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = data.attendances.map(row => {
+      const statusBadge = row.status === 'present' ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">Tepat Waktu</span>' :
+                          row.status === 'late' ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">Terlambat</span>' :
+                          row.status === 'sick' ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800">Sakit</span>' :
+                          row.status === 'dispensation' ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">Dispensasi</span>' :
+                          '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">Izin</span>';
+
+      const photoThumb = row.photo_in ? `<img src="${row.photo_in}" class="w-8 h-8 rounded-lg object-cover cursor-pointer hover:opacity-80 transition" onclick="viewAttendanceDetail(${JSON.stringify(row).replace(/"/g, '&quot;')})" title="Klik untuk lihat foto" />` : '-';
+
+      return `
+        <tr class="hover:bg-slate-50 transition">
+          <td class="p-3 font-semibold text-slate-800">${row.date}</td>
+          <td class="p-3 font-mono text-xs">${row.clock_in || '-'}</td>
+          <td class="p-3 font-mono text-xs">${row.clock_out || '-'}</td>
+          <td class="p-3">${statusBadge}</td>
+          <td class="p-3">${photoThumb}</td>
+          <td class="p-3 text-xs text-slate-500">${row.distance_in != null ? row.distance_in + 'm' : '-'}</td>
+          <td class="p-3 text-xs text-slate-600">${row.notes || '-'}</td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-red-500">Gagal memuat riwayat.</td></tr>`;
+  }
+}
+
+document.getElementById('emp-history-month').addEventListener('change', loadEmployeeHistory);
+
+// Form Pengajuan Izin
+document.getElementById('form-leave-request').addEventListener('submit', async e => {
+  e.preventDefault();
+  const type = document.getElementById('leave-type').value;
+  const start_date = document.getElementById('leave-start-date').value;
+  const end_date = document.getElementById('leave-end-date').value;
+  const reason = document.getElementById('leave-reason').value;
+  const fileInput = document.getElementById('leave-attachment');
+
+  let attachment = null;
+  if (fileInput.files && fileInput.files[0]) {
+    attachment = await fileToBase64(fileInput.files[0]);
+  }
+
+  try {
+    const res = await fetch('/api/leaves', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, start_date, end_date, reason, attachment })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      showToast(data.message, 'success');
+      document.getElementById('form-leave-request').reset();
+      loadEmployeeLeaves();
+    } else {
+      showToast(data.error || 'Gagal mengirim pengajuan', 'error');
+    }
+  } catch (err) {
+    showToast('Terjadi kesalahan server', 'error');
+  }
+});
+
+async function loadEmployeeLeaves() {
+  const tbody = document.getElementById('table-emp-leaves');
+  tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">Memuat data...</td></tr>`;
+
+  try {
+    const res = await fetch('/api/leaves');
+    const data = await res.json();
+
+    if (!data.success || !data.leaves || data.leaves.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">Belum ada permohonan izin/dispensasi.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = data.leaves.map(l => {
+      const statusBadge = l.status === 'approved' ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">Disetujui Sekolah</span>' :
+                          l.status === 'rejected' ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800">Ditolak</span>' :
+                          '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">Menunggu</span>';
+
+      const typeLabel = l.type === 'sick' ? 'Sakit' : l.type === 'dispensation' ? 'Dispensasi Lomba' : 'Izin Orang Tua';
+
+      return `
+        <tr class="hover:bg-slate-50 transition text-xs">
+          <td class="p-3 text-slate-500">${l.created_at.split(' ')[0]}</td>
+          <td class="p-3 font-semibold text-slate-800">${typeLabel}</td>
+          <td class="p-3 font-mono">${l.start_date} s/d ${l.end_date}</td>
+          <td class="p-3">${l.reason}</td>
+          <td class="p-3">${statusBadge}</td>
+          <td class="p-3 text-slate-600">${l.admin_notes || '-'}</td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500">Gagal memuat permohonan.</td></tr>`;
+  }
+}
+
+// ========================================================
+// ADMIN & KEPALA SEKOLAH PORTAL LOGIC
+// ========================================================
+
+function placeClockPanelInAdminView() {
+  const clockPanel = document.getElementById('panel-emp-clock');
+  const container = document.getElementById('admin-myclock-container');
+  container.appendChild(clockPanel);
+}
+
+function switchAdminTab(tabName) {
+  document.querySelectorAll('.tab-btn-adm').forEach(b => {
+    b.classList.remove('active', 'text-blue-600', 'border-b-2', 'border-blue-600');
+    b.classList.add('text-slate-500');
+  });
+
+  const activeBtn = document.getElementById(`tab-adm-${tabName}`);
+  if (activeBtn) {
+    activeBtn.classList.add('active', 'text-blue-600', 'border-b-2', 'border-blue-600');
+    activeBtn.classList.remove('text-slate-500');
+  }
+
+  document.getElementById('panel-adm-dash').classList.toggle('hidden', tabName !== 'dash');
+  document.getElementById('panel-adm-myclock').classList.toggle('hidden', tabName !== 'myclock');
+  document.getElementById('panel-adm-today').classList.toggle('hidden', tabName !== 'today');
+  document.getElementById('panel-adm-report').classList.toggle('hidden', tabName !== 'report');
+  document.getElementById('panel-adm-leaves').classList.toggle('hidden', tabName !== 'leaves');
+  document.getElementById('panel-adm-emp').classList.toggle('hidden', tabName !== 'emp');
+  document.getElementById('panel-adm-settings').classList.toggle('hidden', tabName !== 'settings');
+
+  if (tabName === 'myclock') {
+    placeClockPanelInAdminView();
+    document.getElementById('panel-emp-clock').classList.remove('hidden');
+    startCamera();
+    initGeolocation();
+    loadTodayAttendance();
+    if (state.maps.emp) setTimeout(() => state.maps.emp.invalidateSize(), 300);
+  } else {
+    stopCamera();
+  }
+
+  if (tabName === 'dash') loadAdminDashboard();
+  if (tabName === 'today') loadAdminTodayAttendance();
+  if (tabName === 'report') loadAdminReport();
+  if (tabName === 'leaves') loadAdminLeaves();
+  if (tabName === 'emp') loadAdminEmployees();
+  if (tabName === 'settings') loadAdminSettingsForm();
+}
+
+document.getElementById('tab-adm-dash').addEventListener('click', () => switchAdminTab('dash'));
+document.getElementById('tab-adm-myclock').addEventListener('click', () => switchAdminTab('myclock'));
+document.getElementById('tab-adm-today').addEventListener('click', () => switchAdminTab('today'));
+document.getElementById('tab-adm-report').addEventListener('click', () => switchAdminTab('report'));
+document.getElementById('tab-adm-leaves').addEventListener('click', () => switchAdminTab('leaves'));
+document.getElementById('tab-adm-emp').addEventListener('click', () => switchAdminTab('emp'));
+document.getElementById('tab-adm-settings').addEventListener('click', () => switchAdminTab('settings'));
+
+// 1. Dashboard KPI & Chart Sekolah
+async function loadAdminDashboard() {
+  try {
+    const res = await fetch('/api/attendance/stats');
+    const data = await res.json();
+    if (!data.success) return;
+
+    const stats = data.stats;
+    document.getElementById('kpi-total-emp').textContent = stats.totalAll;
+    document.getElementById('kpi-sub-total').textContent = `${stats.totalStudents} Siswa • ${stats.totalTeachers} Guru/Staf`;
+    document.getElementById('kpi-present').textContent = stats.present;
+    document.getElementById('kpi-late').textContent = stats.late;
+    document.getElementById('kpi-excused').textContent = stats.excused;
+    document.getElementById('kpi-absent').textContent = stats.absent;
+
+    renderTrendChart(data.trend || []);
+    loadRecentActivities();
+  } catch (err) {
+    console.error('Gagal memuat data dashboard:', err);
+  }
+}
+
+function renderTrendChart(trendData) {
+  const ctx = document.getElementById('chart-attendance-trend');
+  if (!ctx) return;
+
+  if (state.trendChart) {
+    state.trendChart.destroy();
+  }
+
+  const labels = trendData.map(d => d.label);
+  const presentVals = trendData.map(d => d.present);
+  const lateVals = trendData.map(d => d.late);
+  const excusedVals = trendData.map(d => d.excused);
+
+  state.trendChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Tepat Waktu',
+          data: presentVals,
+          backgroundColor: '#10b981',
+          borderRadius: 6
+        },
+        {
+          label: 'Terlambat',
+          data: lateVals,
+          backgroundColor: '#f59e0b',
+          borderRadius: 6
+        },
+        {
+          label: 'Izin / Sakit / Disp',
+          data: excusedVals,
+          backgroundColor: '#a855f7',
+          borderRadius: 6
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { stacked: true, grid: { display: false } },
+        y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
+      },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12 } }
+      }
+    }
+  });
+}
+
+async function loadRecentActivities() {
+  const container = document.getElementById('dash-recent-activities');
+  try {
+    const res = await fetch('/api/attendance/all');
+    const data = await res.json();
+
+    if (!data.success || !data.attendances || data.attendances.length === 0) {
+      container.innerHTML = `<div class="text-center text-slate-400 text-xs py-8">Belum ada aktivitas presensi hari ini.</div>`;
+      return;
+    }
+
+    container.innerHTML = data.attendances.slice(0, 5).map(att => {
+      const isLate = att.status === 'late';
+      const icon = isLate ? 'fa-clock text-amber-500 bg-amber-50' : 'fa-circle-check text-emerald-500 bg-emerald-50';
+      const roleBadge = att.role === 'admin' ? '<span class="text-[9px] bg-indigo-100 text-indigo-800 font-bold px-1.5 py-0.5 rounded">Admin</span>' :
+                        att.role === 'teacher' ? '<span class="text-[9px] bg-purple-100 text-purple-800 font-bold px-1.5 py-0.5 rounded">Guru</span>' : '';
+
+      return `
+        <div class="flex items-center space-x-3 p-2.5 rounded-xl hover:bg-slate-50 transition border border-slate-100">
+          <div class="w-8 h-8 rounded-lg ${icon} flex items-center justify-center text-sm font-bold">
+            <i class="fa-solid ${icon.split(' ')[0]}"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-xs font-bold text-slate-800 truncate">${att.employee_name} ${roleBadge}</div>
+            <div class="text-[10px] text-slate-500">${att.department} • ${att.clock_in || '-'}</div>
+          </div>
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${isLate ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}">
+            ${isLate ? 'Terlambat' : 'Tepat Waktu'}
+          </span>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="text-center text-red-500 text-xs py-4">Gagal memuat aktivitas.</div>`;
+  }
+}
+
+// 2. Monitoring Presensi Sekolah Hari Ini
+async function loadAdminTodayAttendance() {
+  const tbody = document.getElementById('table-adm-today');
+  tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Memuat presensi sekolah...</td></tr>`;
+
+  const dept = document.getElementById('filter-today-dept').value;
+  const status = document.getElementById('filter-today-status').value;
+  const role = document.getElementById('filter-today-role').value;
+
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0];
+
+  try {
+    const res = await fetch(`/api/attendance/all?date=${todayStr}&department=${encodeURIComponent(dept)}&status=${status}&role=${role}`);
+    const data = await res.json();
+
+    if (!data.success || !data.attendances || data.attendances.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400">Tidak ada data presensi yang sesuai kriteria hari ini.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = data.attendances.map(row => {
+      const statusBadge = row.status === 'present' ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">Tepat Waktu</span>' :
+                          row.status === 'late' ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">Terlambat</span>' :
+                          row.status === 'sick' ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800">Sakit</span>' :
+                          row.status === 'dispensation' ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">Dispensasi</span>' :
+                          '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">Izin</span>';
+
+      const photoThumb = row.photo_in ? `<img src="${row.photo_in}" class="w-8 h-8 rounded-lg object-cover" />` : `<div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center text-xs"><i class="fa-solid fa-user"></i></div>`;
+
+      const roleBadge = row.role === 'admin' ? '<span class="text-[9px] bg-indigo-100 text-indigo-800 font-bold px-1 rounded ml-1">Admin</span>' :
+                        row.role === 'teacher' ? '<span class="text-[9px] bg-purple-100 text-purple-800 font-bold px-1 rounded ml-1">Guru</span>' : '';
+
+      return `
+        <tr class="hover:bg-slate-50 transition">
+          <td class="p-3">
+            <div class="flex items-center space-x-3">
+              ${photoThumb}
+              <div>
+                <div class="font-bold text-slate-900">${row.employee_name} ${roleBadge}</div>
+                <div class="text-[11px] font-mono text-slate-500">${row.nip}</div>
+              </div>
+            </div>
+          </td>
+          <td class="p-3">
+            <div class="text-xs font-semibold text-slate-800">${row.department}</div>
+            <div class="text-[11px] text-slate-500">${row.position}</div>
+          </td>
+          <td class="p-3 font-mono text-xs font-bold text-slate-700">${row.clock_in || '-'}</td>
+          <td class="p-3 font-mono text-xs font-bold text-slate-700">${row.clock_out || '-'}</td>
+          <td class="p-3">${statusBadge}</td>
+          <td class="p-3 text-xs font-semibold text-slate-600">${row.distance_in != null ? row.distance_in + ' m' : '-'}</td>
+          <td class="p-3">
+            <button class="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition"
+              onclick="viewAttendanceDetail(${JSON.stringify(row).replace(/"/g, '&quot;')})">
+              <i class="fa-solid fa-eye mr-1"></i> Detail
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-red-500">Gagal memuat presensi.</td></tr>`;
+  }
+}
+
+document.getElementById('filter-today-role').addEventListener('change', loadAdminTodayAttendance);
+document.getElementById('filter-today-dept').addEventListener('change', loadAdminTodayAttendance);
+document.getElementById('filter-today-status').addEventListener('change', loadAdminTodayAttendance);
+document.getElementById('btn-refresh-today').addEventListener('click', loadAdminTodayAttendance);
+
+// 3. Rekap & Laporan Kelas
+async function loadAdminReport() {
+  const monthInput = document.getElementById('report-month');
+  if (!monthInput.value) {
+    const now = new Date();
+    monthInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  const tbody = document.getElementById('table-adm-report');
+  tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Memuat rekap...</td></tr>`;
+
+  try {
+    const res = await fetch(`/api/attendance/all?month=${monthInput.value}`);
+    const data = await res.json();
+
+    if (!data.success || !data.attendances || data.attendances.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400">Tidak ada data presensi pada bulan terpilih.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = data.attendances.map(r => {
+      const statusBadge = r.status === 'present' ? '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">Tepat Waktu</span>' :
+                          r.status === 'late' ? '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">Terlambat</span>' :
+                          r.status === 'sick' ? '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800">Sakit</span>' :
+                          r.status === 'dispensation' ? '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">Dispensasi</span>' :
+                          '<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">Izin</span>';
+
+      return `
+        <tr class="hover:bg-slate-50 transition text-xs">
+          <td class="p-3 font-semibold text-slate-800">${r.date}</td>
+          <td class="p-3 font-bold text-slate-900">${r.employee_name} <span class="font-normal text-slate-500 font-mono">(${r.nip})</span></td>
+          <td class="p-3 text-slate-600">${r.department}</td>
+          <td class="p-3 font-mono">${r.clock_in || '-'}</td>
+          <td class="p-3 font-mono">${r.clock_out || '-'}</td>
+          <td class="p-3">${statusBadge}</td>
+          <td class="p-3 text-slate-500">${r.notes || '-'}</td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-red-500">Gagal memuat rekap.</td></tr>`;
+  }
+}
+
+document.getElementById('report-month').addEventListener('change', loadAdminReport);
+
+document.getElementById('btn-export-csv').addEventListener('click', () => {
+  const month = document.getElementById('report-month').value;
+  window.location.href = `/api/attendance/export?month=${month}`;
+});
+
+document.getElementById('btn-open-print-preview').addEventListener('click', async () => {
+  const month = document.getElementById('report-month').value;
+  const res = await fetch(`/api/attendance/all?month=${month}`);
+  const data = await res.json();
+
+  const printTable = document.getElementById('print-table-body');
+  document.getElementById('print-period-title').textContent = `Periode: ${month}`;
+  document.getElementById('print-generated-date').textContent = new Date().toLocaleString('id-ID');
+  if (state.currentUser) document.getElementById('print-hr-name').textContent = `( ${state.currentUser.name} )`;
+  if (state.officeSettings) document.getElementById('print-header-company').textContent = state.officeSettings.office_name;
+
+  if (data.success && data.attendances && data.attendances.length > 0) {
+    printTable.innerHTML = data.attendances.map((r, i) => `
+      <tr>
+        <td class="p-2 border-r border-slate-300 text-center">${i + 1}</td>
+        <td class="p-2 border-r border-slate-300 font-mono">${r.date}</td>
+        <td class="p-2 border-r border-slate-300 font-bold">${r.employee_name} <span class="font-normal text-slate-500">(${r.nip})</span></td>
+        <td class="p-2 border-r border-slate-300">${r.department}</td>
+        <td class="p-2 border-r border-slate-300 text-center font-mono">${r.clock_in || '-'}</td>
+        <td class="p-2 border-r border-slate-300 text-center font-mono">${r.clock_out || '-'}</td>
+        <td class="p-2 border-r border-slate-300 text-center">${r.status === 'present' ? 'Hadir' : r.status === 'late' ? 'Terlambat' : r.status === 'dispensation' ? 'Dispensasi' : r.status}</td>
+        <td class="p-2 text-slate-600">${r.notes || '-'}</td>
+      </tr>
+    `).join('');
+  } else {
+    printTable.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-slate-400">Tidak ada data untuk dicetak.</td></tr>`;
+  }
+
+  document.getElementById('modal-print-preview').classList.remove('hidden');
+});
+
+// 4. Persetujuan Izin & Dispensasi Sekolah
+async function loadAdminLeaves() {
+  const tbody = document.getElementById('table-adm-leaves');
+  tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Memuat data...</td></tr>`;
+
+  try {
+    const res = await fetch('/api/leaves');
+    const data = await res.json();
+
+    if (!data.success || !data.leaves || data.leaves.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400">Tidak ada permohonan izin/dispensasi.</td></tr>`;
+      return;
+    }
+
+    const pending = data.leaves.filter(l => l.status === 'pending').length;
+    const badge = document.getElementById('badge-pending-leaves');
+    if (pending > 0) {
+      badge.textContent = pending;
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+
+    tbody.innerHTML = data.leaves.map(l => {
+      const statusBadge = l.status === 'approved' ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">Disetujui</span>' :
+                          l.status === 'rejected' ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800">Ditolak</span>' :
+                          '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">Menunggu</span>';
+
+      const typeLabel = l.type === 'sick' ? 'Sakit' : l.type === 'dispensation' ? 'Dispensasi Lomba' : 'Izin Orang Tua';
+      const thumb = l.attachment ? `<img src="${l.attachment}" class="w-8 h-8 rounded-lg object-cover border border-slate-200 cursor-pointer" onclick="window.open('${l.attachment}')" />` : '-';
+
+      const actionBtn = l.status === 'pending'
+        ? `<button class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition" onclick="openReviewLeaveModal(${JSON.stringify(l).replace(/"/g, '&quot;')})">Tinjau</button>`
+        : `<span class="text-xs text-slate-400 italic">Selesai</span>`;
+
+      return `
+        <tr class="hover:bg-slate-50 transition text-xs">
+          <td class="p-3">
+            <div class="font-bold text-slate-900">${l.employee_name}</div>
+            <div class="text-[11px] font-mono text-slate-500">${l.nip} • ${l.department}</div>
+          </td>
+          <td class="p-3 font-semibold text-slate-800">${typeLabel}</td>
+          <td class="p-3 font-mono">${l.start_date} s/d ${l.end_date}</td>
+          <td class="p-3 text-slate-700">${l.reason}</td>
+          <td class="p-3">${thumb}</td>
+          <td class="p-3">${statusBadge}</td>
+          <td class="p-3">${actionBtn}</td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-red-500">Gagal memuat izin.</td></tr>`;
+  }
+}
+
+window.openReviewLeaveModal = function(leave) {
+  document.getElementById('review-leave-id').value = leave.id;
+  document.getElementById('review-leave-name').textContent = `${leave.employee_name} (${leave.nip})`;
+  document.getElementById('review-leave-type').textContent = leave.type === 'sick' ? 'Sakit' : leave.type === 'dispensation' ? 'Dispensasi Lomba' : 'Izin Orang Tua';
+  document.getElementById('review-leave-dates').textContent = `${leave.start_date} s/d ${leave.end_date}`;
+  document.getElementById('review-leave-reason').textContent = leave.reason;
+  document.getElementById('review-leave-notes').value = '';
+
+  const attachBox = document.getElementById('review-attachment-box');
+  const attachImg = document.getElementById('review-attachment-img');
+  if (leave.attachment) {
+    attachImg.src = leave.attachment;
+    attachBox.classList.remove('hidden');
+  } else {
+    attachBox.classList.add('hidden');
+  }
+
+  document.getElementById('modal-review-leave').classList.remove('hidden');
+};
+
+document.getElementById('btn-approve-leave').addEventListener('click', () => submitLeaveReview('approved'));
+document.getElementById('btn-reject-leave').addEventListener('click', () => submitLeaveReview('rejected'));
+
+async function submitLeaveReview(status) {
+  const id = document.getElementById('review-leave-id').value;
+  const admin_notes = document.getElementById('review-leave-notes').value;
+
+  try {
+    const res = await fetch(`/api/leaves/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, admin_notes })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      showToast(data.message, 'success');
+      document.getElementById('modal-review-leave').classList.add('hidden');
+      loadAdminLeaves();
+      loadAdminDashboard();
+    } else {
+      showToast(data.error || 'Gagal memproses permohonan', 'error');
+    }
+  } catch (err) {
+    showToast('Terjadi kesalahan server', 'error');
+  }
+}
+
+// 5. Data Siswa & Guru Admin
+async function loadAdminEmployees() {
+  const tbody = document.getElementById('table-adm-employees');
+  tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Memuat warga sekolah...</td></tr>`;
+
+  try {
+    const res = await fetch('/api/employees');
+    const data = await res.json();
+
+    if (!data.success || !data.employees || data.employees.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">Belum ada data warga sekolah.</td></tr>`;
+      return;
+    }
+
+    const depts = [...new Set(data.employees.map(e => e.department).filter(Boolean))];
+    const deptSelect = document.getElementById('filter-today-dept');
+    deptSelect.innerHTML = `<option value="">Semua Kelas & Unit</option>` + depts.map(d => `<option value="${d}">${d}</option>`).join('');
+
+    tbody.innerHTML = data.employees.map(emp => {
+      const isMe = state.currentUser && state.currentUser.id === emp.id;
+      const statusBadge = emp.is_active ? '<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">Aktif</span>' : '<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-600">Nonaktif</span>';
+
+      const roleBadge = emp.role === 'admin' ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-indigo-100 text-indigo-800">Kepala Sekolah / Admin</span>' :
+                        emp.role === 'teacher' ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-purple-100 text-purple-800">Guru / Staf</span>' :
+                        '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800">Siswa</span>';
+
+      return `
+        <tr class="hover:bg-slate-50 transition text-xs">
+          <td class="p-3">
+            <div class="font-bold text-slate-900">${emp.name}</div>
+            <div class="font-mono text-slate-500">${emp.nip}</div>
+          </td>
+          <td class="p-3">
+            <div class="text-slate-800">${emp.email}</div>
+            <div class="text-slate-400">${emp.phone || '-'}</div>
+          </td>
+          <td class="p-3">
+            <div class="font-semibold text-slate-800">${emp.department}</div>
+            <div class="text-slate-500">${emp.position}</div>
+          </td>
+          <td class="p-3">${roleBadge}</td>
+          <td class="p-3">${statusBadge}</td>
+          <td class="p-3">
+            <div class="flex items-center space-x-2">
+              <button class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold transition"
+                onclick="openEditEmployeeModal(${JSON.stringify(emp).replace(/"/g, '&quot;')})">
+                <i class="fa-solid fa-pen mr-1"></i> Edit
+              </button>
+              ${!isMe ? `
+                <button class="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg font-bold transition"
+                  onclick="deleteEmployee(${emp.id}, '${emp.name}')">
+                  <i class="fa-solid fa-trash mr-1"></i> Hapus
+                </button>
+              ` : ''}
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-500">Gagal memuat data warga sekolah.</td></tr>`;
+  }
+}
+
+document.getElementById('btn-modal-add-emp').addEventListener('click', () => {
+  document.getElementById('modal-emp-title').innerHTML = `<i class="fa-solid fa-user-plus text-blue-600"></i> <span>Tambah Siswa / Guru Baru</span>`;
+  document.getElementById('form-save-employee').reset();
+  document.getElementById('emp-form-id').value = '';
+  document.getElementById('emp-form-nip').disabled = false;
+  document.getElementById('modal-employee-form').classList.remove('hidden');
+});
+
+window.openEditEmployeeModal = function(emp) {
+  document.getElementById('modal-emp-title').innerHTML = `<i class="fa-solid fa-user-pen text-blue-600"></i> <span>Edit Data Siswa / Guru</span>`;
+  document.getElementById('emp-form-id').value = emp.id;
+  document.getElementById('emp-form-nip').value = emp.nip;
+  document.getElementById('emp-form-nip').disabled = true;
+  document.getElementById('emp-form-name').value = emp.name;
+  document.getElementById('emp-form-email').value = emp.email;
+  document.getElementById('emp-form-password').value = '';
+  document.getElementById('emp-form-dept').value = emp.department;
+  document.getElementById('emp-form-position').value = emp.position;
+  document.getElementById('emp-form-phone').value = emp.phone || '';
+  document.getElementById('emp-form-role').value = emp.role;
+  document.getElementById('modal-employee-form').classList.remove('hidden');
+};
+
+document.getElementById('form-save-employee').addEventListener('submit', async e => {
+  e.preventDefault();
+  const id = document.getElementById('emp-form-id').value;
+  const isEdit = Boolean(id);
+
+  const payload = {
+    nip: document.getElementById('emp-form-nip').value,
+    name: document.getElementById('emp-form-name').value,
+    email: document.getElementById('emp-form-email').value,
+    password: document.getElementById('emp-form-password').value,
+    department: document.getElementById('emp-form-dept').value,
+    position: document.getElementById('emp-form-position').value,
+    phone: document.getElementById('emp-form-phone').value,
+    role: document.getElementById('emp-form-role').value
+  };
+
+  try {
+    const url = isEdit ? `/api/employees/${id}` : '/api/employees';
+    const method = isEdit ? 'PUT' : 'POST';
+
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      showToast(data.message, 'success');
+      document.getElementById('modal-employee-form').classList.add('hidden');
+      loadAdminEmployees();
+    } else {
+      showToast(data.error || 'Gagal menyimpan data', 'error');
+    }
+  } catch (err) {
+    showToast('Terjadi kesalahan server', 'error');
+  }
+});
+
+window.deleteEmployee = async function(id, name) {
+  if (!confirm(`Apakah Anda yakin ingin menghapus data "${name}"?`)) return;
+
+  try {
+    const res = await fetch(`/api/employees/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+
+    if (data.success) {
+      showToast(data.message, 'success');
+      loadAdminEmployees();
+    } else {
+      showToast(data.error || 'Gagal menghapus data', 'error');
+    }
+  } catch (err) {
+    showToast('Terjadi kesalahan server', 'error');
+  }
+};
+
+// 6. Pengaturan Sekolah & Peta
+async function loadAdminSettingsForm() {
+  await loadSettings();
+  const s = state.officeSettings;
+  if (!s) return;
+
+  document.getElementById('set-office-name').value = s.office_name;
+  document.getElementById('set-start-time').value = s.work_start_time;
+  document.getElementById('set-end-time').value = s.work_end_time;
+  document.getElementById('set-late-tolerance').value = s.late_tolerance_minutes;
+  document.getElementById('set-radius').value = s.office_radius_meters;
+  document.getElementById('set-lat').value = s.office_lat;
+  document.getElementById('set-lng').value = s.office_lng;
+  document.getElementById('set-enable-radius').checked = Boolean(s.enable_radius_restriction);
+
+  renderAdminMap(s);
+}
+
+function renderAdminMap(settings) {
+  const container = document.getElementById('admin-map');
+  if (!container) return;
+
+  if (state.maps.admin) {
+    state.maps.admin.remove();
+  }
+
+  const map = L.map('admin-map').setView([settings.office_lat, settings.office_lng], 15);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+
+  let officeMarker = L.marker([settings.office_lat, settings.office_lng], { draggable: true }).addTo(map);
+  let radiusCircle = L.circle([settings.office_lat, settings.office_lng], {
+    color: '#2563eb',
+    fillColor: '#3b82f6',
+    fillOpacity: 0.15,
+    radius: settings.office_radius_meters
+  }).addTo(map);
+
+  function updatePosition(lat, lng) {
+    document.getElementById('set-lat').value = lat.toFixed(6);
+    document.getElementById('set-lng').value = lng.toFixed(6);
+    officeMarker.setLatLng([lat, lng]);
+    radiusCircle.setLatLng([lat, lng]);
+  }
+
+  officeMarker.on('dragend', e => {
+    const pos = e.target.getLatLng();
+    updatePosition(pos.lat, pos.lng);
+  });
+
+  map.on('click', e => {
+    updatePosition(e.latlng.lat, e.latlng.lng);
+  });
+
+  document.getElementById('set-radius').addEventListener('input', e => {
+    const r = Number(e.target.value) || 100;
+    radiusCircle.setRadius(r);
+  });
+
+  state.maps.admin = map;
+}
+
+document.getElementById('form-settings').addEventListener('submit', async e => {
+  e.preventDefault();
+  const payload = {
+    office_name: document.getElementById('set-office-name').value,
+    work_start_time: document.getElementById('set-start-time').value,
+    work_end_time: document.getElementById('set-end-time').value,
+    late_tolerance_minutes: document.getElementById('set-late-tolerance').value,
+    office_radius_meters: document.getElementById('set-radius').value,
+    office_lat: document.getElementById('set-lat').value,
+    office_lng: document.getElementById('set-lng').value,
+    enable_radius_restriction: document.getElementById('set-enable-radius').checked ? 1 : 0
+  };
+
+  try {
+    const res = await fetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      showToast(data.message, 'success');
+      state.officeSettings = data.settings;
+      document.getElementById('header-office-name').textContent = data.settings.office_name;
+    } else {
+      showToast(data.error || 'Gagal menyimpan pengaturan', 'error');
+    }
+  } catch (err) {
+    showToast('Terjadi kesalahan server', 'error');
+  }
+});
+
+// ========================================================
+// MODAL DETAIL PRESENSI (FOTO & GPS POPUP)
+// ========================================================
+
+window.viewAttendanceDetail = function(att) {
+  const modal = document.getElementById('modal-detail-attendance');
+  document.getElementById('detail-name').textContent = att.employee_name || (state.currentUser ? state.currentUser.name : '-');
+  document.getElementById('detail-date').textContent = formatIndoDate(att.date);
+  document.getElementById('detail-times').textContent = `Masuk: ${att.clock_in || '-'} | Pulang: ${att.clock_out || '-'}`;
+
+  const isLate = att.status === 'late';
+  const statusEl = document.getElementById('detail-status');
+  statusEl.textContent = isLate ? 'Terlambat Masuk' :
+                         att.status === 'present' ? 'Hadir Tepat Waktu' :
+                         att.status === 'dispensation' ? 'Dispensasi Lomba' : att.status;
+  statusEl.className = `font-bold ${isLate ? 'text-amber-600' : 'text-emerald-600'}`;
+
+  document.getElementById('detail-distance').textContent = `Masuk: ${att.distance_in != null ? att.distance_in + 'm' : '-'} | Pulang: ${att.distance_out != null ? att.distance_out + 'm' : '-'}`;
+  document.getElementById('detail-notes').textContent = att.notes || '-';
+
+  const imgIn = document.getElementById('detail-photo-in');
+  const noPhotoIn = document.getElementById('detail-no-photo-in');
+  if (att.photo_in) {
+    imgIn.src = att.photo_in;
+    imgIn.classList.remove('hidden');
+    noPhotoIn.classList.add('hidden');
+  } else {
+    imgIn.classList.add('hidden');
+    noPhotoIn.classList.remove('hidden');
+  }
+
+  const imgOut = document.getElementById('detail-photo-out');
+  const noPhotoOut = document.getElementById('detail-no-photo-out');
+  if (att.photo_out) {
+    imgOut.src = att.photo_out;
+    imgOut.classList.remove('hidden');
+    noPhotoOut.classList.add('hidden');
+  } else {
+    imgOut.classList.add('hidden');
+    noPhotoOut.classList.remove('hidden');
+  }
+
+  modal.classList.remove('hidden');
+
+  setTimeout(() => {
+    const lat = att.lat_in || (state.officeSettings ? state.officeSettings.office_lat : -6.2088);
+    const lng = att.lng_in || (state.officeSettings ? state.officeSettings.office_lng : 106.8456);
+
+    if (state.maps.detail) {
+      state.maps.detail.remove();
+    }
+
+    const detailMap = L.map('detail-map').setView([lat, lng], 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(detailMap);
+
+    L.marker([lat, lng]).addTo(detailMap).bindPopup('Titik Absen Masuk').openPopup();
+
+    if (state.officeSettings) {
+      L.circle([state.officeSettings.office_lat, state.officeSettings.office_lng], {
+        color: '#2563eb',
+        radius: state.officeSettings.office_radius_meters
+      }).addTo(detailMap);
+    }
+
+    state.maps.detail = detailMap;
+  }, 200);
+};
+
+// Close all modals
+document.querySelectorAll('.btn-close-modal').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#modal-detail-attendance, #modal-employee-form, #modal-review-leave, #modal-print-preview').forEach(m => {
+      m.classList.add('hidden');
+    });
+  });
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('#modal-detail-attendance, #modal-employee-form, #modal-review-leave, #modal-print-preview').forEach(m => {
+      m.classList.add('hidden');
+    });
+  }
+});
+
+// ========================================================
+// INITIALIZATION
+// ========================================================
+
+window.addEventListener('DOMContentLoaded', () => {
+  startClock();
+  checkAuth();
+});
