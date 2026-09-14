@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PresensiKu Sekolah - Sistem Presensi Siswa & Guru Digital</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col">
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <!-- Top Navigation Bar -->
+  <header id="main-header" class="hidden bg-white border-b border-slate-200 sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-md shadow-blue-500/20">
+          <i class="fa-solid fa-graduation-cap"></i>
+        </div>
+        <div>
+          <span class="font-bold text-lg text-slate-900 leading-tight block">PresensiKu Sekolah</span>
+          <span class="text-xs text-slate-500 font-medium" id="header-office-name">SMA Negeri 1 PresensiKu Digital</span>
+        </div>
+      </div>
+
+      <!-- Live Clock -->
+      <div class="hidden md:flex items-center bg-slate-100 px-4 py-1.5 rounded-full border border-slate-200 space-x-3">
+        <i class="fa-regular fa-clock text-blue-600 text-sm"></i>
+        <div class="text-xs font-semibold text-slate-700" id="live-datetime">Memuat waktu...</div>
+      </div>
+
+      <!-- User Profile & Logout -->
+      <div class="flex items-center space-x-3">
+        <div class="text-right hidden sm:block">
+          <div class="text-sm font-bold text-slate-800" id="nav-user-name">-</div>
+          <div class="text-xs text-slate-500 flex items-center justify-end space-x-1">
+            <span id="nav-user-role" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-800 uppercase">-</span>
+            <span id="nav-user-dept">-</span>
+          </div>
+        </div>
+        <button id="btn-logout" class="p-2 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition" title="Keluar">
+          <i class="fa-solid fa-arrow-right-from-bracket text-lg"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN VIEW WRAPPER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+
+    <!-- ======================================================== -->
+    <!-- VIEW 0: LOGIN VIEW -->
+    <!-- ======================================================== -->
+    <div id="view-login" class="max-w-md mx-auto my-8">
+      <div class="bg-white p-8 rounded-2xl border border-slate-200 shadow-xl card-shadow">
+        <div class="text-center mb-6">
+          <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-3xl mx-auto shadow-lg shadow-blue-500/30 mb-3">
+            <i class="fa-solid fa-graduation-cap"></i>
+          </div>
+          <h1 class="text-2xl font-bold text-slate-900">PresensiKu Sekolah</h1>
+          <p class="text-sm text-slate-500 mt-1">Sistem Absensi Siswa & Guru Digital</p>
+        </div>
+
+        <form id="form-login" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Email Akun Sekolah</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                <i class="fa-solid fa-envelope"></i>
+              </span>
+              <input type="email" id="login-email" required placeholder="nama@sekolah.sch.id"
+                class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Password</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                <i class="fa-solid fa-lock"></i>
+              </span>
+              <input type="password" id="login-password" required placeholder="••••••••"
+                class="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition" />
+              <button type="button" id="btn-toggle-password" class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-eye" id="eye-icon"></i>
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" id="btn-submit-login" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition shadow-lg shadow-blue-500/25 flex items-center justify-center space-x-2">
+            <span>Masuk Sekarang</span>
+            <i class="fa-solid fa-arrow-right text-xs"></i>
+          </button>
+        </form>
+
+        <!-- Quick Demo Login Buttons -->
+        <div class="mt-8 pt-6 border-t border-slate-100">
+          <p class="text-xs text-center font-semibold text-slate-500 mb-3 uppercase tracking-wider">Demo Cepat (1-Klik Login Sekolah):</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button type="button" class="btn-quick-login py-2 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg text-left flex items-center space-x-2 transition border border-indigo-200"
+              data-email="admin@sekolah.sch.id" data-pass="admin123">
+              <i class="fa-solid fa-user-shield text-indigo-600 text-base"></i>
+              <div class="truncate">
+                <div class="font-bold">Kepala Sekolah / Admin</div>
+                <div class="text-[10px] text-indigo-500">Bisa Absen + Pantau Sekolah</div>
+              </div>
+            </button>
+
+            <button type="button" class="btn-quick-login py-2 px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-semibold rounded-lg text-left flex items-center space-x-2 transition border border-purple-200"
+              data-email="guru@sekolah.sch.id" data-pass="guru123">
+              <i class="fa-solid fa-chalkboard-user text-purple-600 text-base"></i>
+              <div class="truncate">
+                <div class="font-bold">Ibu Ratna, S.Pd</div>
+                <div class="text-[10px] text-purple-500">Guru / Wali Kelas</div>
+              </div>
+            </button>
+
+            <button type="button" class="btn-quick-login py-2 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-lg text-left flex items-center space-x-2 transition border border-emerald-200"
+              data-email="budi@sekolah.sch.id" data-pass="budi123">
+              <i class="fa-solid fa-user-graduate text-emerald-600 text-base"></i>
+              <div class="truncate">
+                <div class="font-bold">Budi Santoso</div>
+                <div class="text-[10px] text-emerald-500">Siswa - XII RPL 1</div>
+              </div>
+            </button>
+
+            <button type="button" class="btn-quick-login py-2 px-3 bg-pink-50 hover:bg-pink-100 text-pink-700 text-xs font-semibold rounded-lg text-left flex items-center space-x-2 transition border border-pink-200"
+              data-email="siti@sekolah.sch.id" data-pass="siti123">
+              <i class="fa-solid fa-user-graduate text-pink-600 text-base"></i>
+              <div class="truncate">
+                <div class="font-bold">Siti Rahmawati</div>
+                <div class="text-[10px] text-pink-500">Siswa - XI MIPA 2</div>
+              </div>
+            </button>
+
+            <button type="button" class="btn-quick-login sm:col-span-2 py-2 px-3 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-semibold rounded-lg text-left flex items-center space-x-2 transition border border-amber-200"
+              data-email="ahmad@sekolah.sch.id" data-pass="ahmad123">
+              <i class="fa-solid fa-user-graduate text-amber-600 text-base"></i>
+              <div class="truncate">
+                <div class="font-bold">Ahmad Fauzi</div>
+                <div class="text-[10px] text-amber-500">Siswa - X IPS 1</div>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ======================================================== -->
+    <!-- VIEW 1: STUDENT & TEACHER PORTAL -->
+    <!-- ======================================================== -->
+    <div id="view-employee" class="hidden space-y-6">
+
+      <!-- Sub-Navigation Tabs -->
+      <div class="flex items-center border-b border-slate-200 space-x-6 pb-2">
+        <button id="tab-emp-clock" class="tab-btn-emp active text-blue-600 border-b-2 border-blue-600 pb-2 font-bold text-sm flex items-center space-x-2">
+          <i class="fa-solid fa-camera"></i>
+          <span>Absen Masuk / Pulang</span>
+        </button>
+        <button id="tab-emp-history" class="tab-btn-emp text-slate-500 hover:text-slate-800 pb-2 font-bold text-sm flex items-center space-x-2">
+          <i class="fa-solid fa-calendar-check"></i>
+          <span>Riwayat Presensi Saya</span>
+        </button>
+        <button id="tab-emp-leave" class="tab-btn-emp text-slate-500 hover:text-slate-800 pb-2 font-bold text-sm flex items-center space-x-2">
+          <i class="fa-solid fa-file-signature"></i>
+          <span>Izin, Sakit & Dispensasi</span>
+        </button>
+      </div>
+
+      <!-- TAB 1: CLOCK IN / OUT PANEL -->
+      <div id="panel-emp-clock" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Left 2 Cols: Camera & Action Form -->
+        <div class="lg:col-span-2 space-y-6">
+
+          <!-- Status Card Hari Ini -->
+          <div class="bg-white p-5 rounded-2xl card-shadow border border-slate-200">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <span class="text-xs font-bold text-blue-600 uppercase tracking-wider">Status Presensi Sekolah Hari Ini</span>
+                <h2 class="text-xl font-extrabold text-slate-900 mt-0.5" id="today-date-text">-</h2>
+              </div>
+              <div id="today-status-badge" class="px-4 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 flex items-center space-x-2 self-start sm:self-auto">
+                <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+                <span>Belum Absen Masuk</span>
+              </div>
+            </div>
+
+            <!-- Jam Masuk & Pulang Stats -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-5 pt-4 border-t border-slate-100">
+              <div class="bg-blue-50/50 p-3 rounded-xl border border-blue-100">
+                <div class="text-[11px] font-bold text-blue-800 uppercase">Jam Masuk Sekolah</div>
+                <div class="text-lg font-black text-slate-900 mt-1" id="val-clock-in">--:--:--</div>
+                <div class="text-[10px] text-slate-500" id="sub-clock-in">Bel Masuk: 07:00 WIB</div>
+              </div>
+
+              <div class="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100">
+                <div class="text-[11px] font-bold text-indigo-800 uppercase">Jam Pulang Sekolah</div>
+                <div class="text-lg font-black text-slate-900 mt-1" id="val-clock-out">--:--:--</div>
+                <div class="text-[10px] text-slate-500" id="sub-clock-out">Bel Pulang: 15:00 WIB</div>
+              </div>
+
+              <div class="col-span-2 sm:col-span-1 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div class="text-[11px] font-bold text-slate-700 uppercase">Jarak ke Gerbang</div>
+                <div class="text-lg font-black text-slate-900 mt-1" id="val-distance">Mendeteksi...</div>
+                <div class="text-[10px] text-slate-500" id="sub-distance">Radius gerbang: 150m</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Kamera & Tombol Presensi -->
+          <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-5">
+            <div class="flex items-center justify-between">
+              <h3 class="font-bold text-slate-900 flex items-center space-x-2">
+                <i class="fa-solid fa-camera text-blue-600"></i>
+                <span>Verifikasi Kamera Selfie</span>
+              </h3>
+              <button id="btn-switch-camera" class="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-600 font-semibold transition">
+                <i class="fa-solid fa-rotate mr-1"></i> Ganti Kamera
+              </button>
+            </div>
+
+            <!-- Viewfinder Kamera -->
+            <div class="camera-container relative rounded-xl overflow-hidden shadow-inner">
+              <video id="camera-feed" autoplay playsinline class="w-full h-full object-cover"></video>
+              <canvas id="camera-canvas" class="hidden"></canvas>
+              <img id="camera-snapshot-preview" class="hidden w-full h-full object-cover" alt="Snapshot" />
+              <div class="camera-guide-box" id="camera-guide"></div>
+
+              <button id="btn-retake-photo" class="hidden absolute bottom-3 right-3 px-3 py-1.5 bg-black/70 hover:bg-black text-white text-xs font-semibold rounded-lg backdrop-blur-sm transition">
+                <i class="fa-solid fa-arrows-rotate mr-1"></i> Ambil Ulang
+              </button>
+            </div>
+
+            <!-- Fallback upload -->
+            <div id="camera-fallback-box" class="hidden p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+              <div class="font-bold flex items-center space-x-1.5 mb-1">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span>Kamera tidak terdeteksi atau diblokir perizinannya</span>
+              </div>
+              <p class="mb-2">Anda dapat mengunggah foto selfie langsung dari galeri:</p>
+              <input type="file" id="fallback-photo-input" accept="image/*" class="text-xs file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-200 file:text-amber-900 hover:file:bg-amber-300" />
+            </div>
+
+            <!-- Input Catatan Opsional -->
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Catatan Kehadiran (Opsional)</label>
+              <input type="text" id="attendance-notes" placeholder="Contoh: Piket kelas pagi / Bertugas upacara / Lomba..."
+                class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition" />
+            </div>
+
+            <!-- Action Button -->
+            <div id="attendance-action-area" class="pt-2">
+              <button id="btn-clock-in" class="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-base shadow-lg shadow-emerald-600/30 transition flex items-center justify-center space-x-3">
+                <i class="fa-solid fa-right-to-bracket text-lg"></i>
+                <span>ABSEN MASUK SEKOLAH SEKARANG</span>
+              </button>
+
+              <button id="btn-clock-out" class="hidden w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-base shadow-lg shadow-blue-600/30 transition flex items-center justify-center space-x-3">
+                <i class="fa-solid fa-right-from-bracket text-lg"></i>
+                <span>ABSEN PULANG SEKOLAH SEKARANG</span>
+              </button>
+
+              <div id="box-clock-completed" class="hidden p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-center text-emerald-800 font-bold">
+                <i class="fa-solid fa-circle-check text-emerald-600 text-2xl block mb-1"></i>
+                <span>Presensi Hari Ini Telah Selesai! Selamat beristirahat.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Col: Map & School Info -->
+        <div class="space-y-6">
+
+          <!-- Geolocation Mini-Map -->
+          <div class="bg-white p-5 rounded-2xl card-shadow border border-slate-200 space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="font-bold text-slate-900 text-sm flex items-center space-x-2">
+                <i class="fa-solid fa-location-dot text-red-500"></i>
+                <span>Titik Sekolah & Jangkauan Gerbang</span>
+              </h3>
+              <button id="btn-refresh-gps" class="text-xs text-blue-600 hover:underline font-semibold flex items-center space-x-1">
+                <i class="fa-solid fa-arrows-rotate"></i>
+                <span>Perbarui GPS</span>
+              </button>
+            </div>
+
+            <div id="emp-map" class="w-full h-56 rounded-xl border border-slate-200"></div>
+
+            <div class="space-y-2 text-xs">
+              <div class="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100">
+                <span class="text-slate-500">Lokasi Sekolah:</span>
+                <span class="font-bold text-slate-800" id="map-office-label">SMA Negeri 1 PresensiKu</span>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100">
+                <span class="text-slate-500">Koordinat Anda:</span>
+                <span class="font-mono text-[11px] font-semibold text-slate-700" id="map-user-coords">Mencari...</span>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded-lg" id="radius-status-box">
+                <span class="text-slate-500">Status Jangkauan:</span>
+                <span class="font-bold" id="map-radius-badge">-</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Petunjuk Tata Tertib Sekolah -->
+          <div class="bg-blue-50/50 p-5 rounded-2xl border border-blue-100 text-xs text-blue-900 space-y-2.5">
+            <div class="font-bold text-sm text-blue-950 flex items-center space-x-2">
+              <i class="fa-solid fa-bell text-blue-600"></i>
+              <span>Tata Tertib Presensi Sekolah</span>
+            </div>
+            <ul class="list-disc pl-4 space-y-1 text-slate-600">
+              <li>Bel masuk berbunyi pukul <strong>07:00 WIB</strong>.</li>
+              <li>Gerbang toleransi ditutup pukul <strong>07:15 WIB</strong> (lewat dari jam ini berstatus Terlambat).</li>
+              <li>Siswa & Guru wajib menyalakan izin kamera & GPS.</li>
+              <li>Pastikan foto selfie memperlihatkan wajah rapi berseragam.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: HISTORY PANEL -->
+      <div id="panel-emp-history" class="hidden space-y-6">
+        <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <h3 class="font-bold text-slate-900 text-lg flex items-center space-x-2">
+              <i class="fa-solid fa-history text-blue-600"></i>
+              <span>Riwayat Presensi Saya</span>
+            </h3>
+
+            <div class="flex items-center space-x-3">
+              <label class="text-xs font-semibold text-slate-600">Bulan:</label>
+              <input type="month" id="emp-history-month" class="px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-semibold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+          </div>
+
+          <div class="overflow-x-auto rounded-xl border border-slate-200">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-slate-50 text-slate-600 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                <tr>
+                  <th class="p-3">Tanggal</th>
+                  <th class="p-3">Jam Masuk</th>
+                  <th class="p-3">Jam Pulang</th>
+                  <th class="p-3">Status</th>
+                  <th class="p-3">Foto Selfie</th>
+                  <th class="p-3">Jarak</th>
+                  <th class="p-3">Keterangan</th>
+                </tr>
+              </thead>
+              <tbody id="table-emp-history" class="divide-y divide-slate-100">
+                <tr>
+                  <td colspan="7" class="p-4 text-center text-slate-400">Memuat data...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: LEAVE / SICK / DISPENSATION PANEL -->
+      <div id="panel-emp-leave" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Form Pengajuan Izin -->
+        <div class="lg:col-span-1 bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
+          <h3 class="font-bold text-slate-900 text-base flex items-center space-x-2">
+            <i class="fa-solid fa-pen-to-square text-blue-600"></i>
+            <span>Form Izin / Sakit / Dispensasi</span>
+          </h3>
+
+          <form id="form-leave-request" class="space-y-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Jenis Permohonan</label>
+              <select id="leave-type" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500">
+                <option value="sick">Sakit (Surat Dokter / Keterangan)</option>
+                <option value="permission">Izin (Surat Keterangan Orang Tua / Wali)</option>
+                <option value="dispensation">Dispensasi (Lomba / Tugas / Kegiatan Sekolah)</option>
+              </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Mulai</label>
+                <input type="date" id="leave-start-date" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Selesai</label>
+                <input type="date" id="leave-end-date" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Alasan Lengkap</label>
+              <textarea id="leave-reason" rows="3" required placeholder="Jelaskan alasan izin atau nama kegiatan lomba..."
+                class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500"></textarea>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Foto Bukti / Surat (Opsional)</label>
+              <input type="file" id="leave-attachment" accept="image/*" class="w-full text-xs file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+            </div>
+
+            <button type="submit" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md transition">
+              Kirim Permohonan
+            </button>
+          </form>
+        </div>
+
+        <!-- Tabel Riwayat Izin Saya -->
+        <div class="lg:col-span-2 bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
+          <h3 class="font-bold text-slate-900 text-base flex items-center space-x-2">
+            <i class="fa-solid fa-list-check text-blue-600"></i>
+            <span>Daftar Permohonan Izin Saya</span>
+          </h3>
+
+          <div class="overflow-x-auto rounded-xl border border-slate-200">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-slate-50 text-slate-600 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                <tr>
+                  <th class="p-3">Tgl Pengajuan</th>
+                  <th class="p-3">Jenis</th>
+                  <th class="p-3">Periode</th>
+                  <th class="p-3">Alasan</th>
+                  <th class="p-3">Status</th>
+                  <th class="p-3">Catatan Sekolah</th>
+                </tr>
+              </thead>
+              <tbody id="table-emp-leaves" class="divide-y divide-slate-100">
+                <tr>
+                  <td colspan="6" class="p-4 text-center text-slate-400">Belum ada pengajuan.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <!-- ======================================================== -->
+    <!-- VIEW 2: ADMIN & KEPALA SEKOLAH PORTAL -->
+    <!-- ======================================================== -->
+    <div id="view-admin" class="hidden space-y-6">
+
+      <!-- Admin Top Tabs (Termasuk Tab Absen Saya!) -->
+      <div class="flex items-center overflow-x-auto border-b border-slate-200 space-x-6 pb-2">
+        <button id="tab-adm-dash" class="tab-btn-adm active text-blue-600 border-b-2 border-blue-600 pb-2 font-bold text-sm flex items-center space-x-2 whitespace-nowrap">
+          <i class="fa-solid fa-chart-pie"></i>
+          <span>Dashboard Sekolah</span>
+        </button>
+        <!-- TAB ABSEN SAYA UNTUK ADMIN/KEPALA SEKOLAH -->
+        <button id="tab-adm-myclock" class="tab-btn-adm text-emerald-700 hover:text-emerald-900 pb-2 font-bold text-sm flex items-center space-x-2 whitespace-nowrap bg-emerald-50 px-3 py-1 rounded-lg">
+          <i class="fa-solid fa-camera text-emerald-600"></i>
+          <span>Absen Saya (Admin/Guru)</span>
+        </button>
+        <button id="tab-adm-today" class="tab-btn-adm text-slate-500 hover:text-slate-800 pb-2 font-bold text-sm flex items-center space-x-2 whitespace-nowrap">
+          <i class="fa-solid fa-clipboard-user"></i>
+          <span>Monitoring Kehadiran</span>
+        </button>
+        <button id="tab-adm-report" class="tab-btn-adm text-slate-500 hover:text-slate-800 pb-2 font-bold text-sm flex items-center space-x-2 whitespace-nowrap">
+          <i class="fa-solid fa-file-invoice"></i>
+          <span>Rekap & Laporan Kelas</span>
+        </button>
+        <button id="tab-adm-leaves" class="tab-btn-adm text-slate-500 hover:text-slate-800 pb-2 font-bold text-sm flex items-center space-x-2 whitespace-nowrap">
+          <i class="fa-solid fa-envelope-open-text"></i>
+          <span>Persetujuan Izin</span>
+          <span id="badge-pending-leaves" class="hidden px-1.5 py-0.5 rounded-full text-[10px] bg-red-500 text-white font-bold">0</span>
+        </button>
+        <button id="tab-adm-emp" class="tab-btn-adm text-slate-500 hover:text-slate-800 pb-2 font-bold text-sm flex items-center space-x-2 whitespace-nowrap">
+          <i class="fa-solid fa-users"></i>
+          <span>Data Siswa & Guru</span>
+        </button>
+        <button id="tab-adm-settings" class="tab-btn-adm text-slate-500 hover:text-slate-800 pb-2 font-bold text-sm flex items-center space-x-2 whitespace-nowrap">
+          <i class="fa-solid fa-gear"></i>
+          <span>Pengaturan Sekolah</span>
+        </button>
+      </div>
+
+      <!-- ADMIN TAB 0: ABSEN SAYA (UNTUK ADMIN/KEPALA SEKOLAH/GURU) -->
+      <div id="panel-adm-myclock" class="hidden space-y-6">
+        <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex items-center justify-between">
+          <div>
+            <span class="text-xs font-bold text-emerald-800 uppercase tracking-wider block">Fitur Absensi Mandiri Admin & Guru</span>
+            <p class="text-xs text-emerald-700">Kepala Sekolah dan Admin dapat langsung melakukan absen masuk dan pulang sekolah di sini.</p>
+          </div>
+          <div class="px-3 py-1 bg-emerald-200 text-emerald-900 rounded-full font-bold text-xs">
+            <i class="fa-solid fa-user-shield mr-1"></i> Mode Admin Aktif
+          </div>
+        </div>
+
+        <!-- Embedded Attendance Panel (Reuses Camera & GPS) -->
+        <div id="admin-myclock-container">
+          <!-- Will render Clock In/Out card for admin dynamically -->
+        </div>
+      </div>
+
+      <!-- ADMIN TAB 1: DASHBOARD SEKOLAH -->
+      <div id="panel-adm-dash" class="space-y-6">
+
+        <!-- KPI Metric Cards Sekolah -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div class="bg-white p-4 rounded-2xl card-shadow border border-slate-200">
+            <div class="flex items-center justify-between text-slate-500 mb-2">
+              <span class="text-xs font-bold uppercase">Total Warga Sekolah</span>
+              <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-sm font-bold">
+                <i class="fa-solid fa-school"></i>
+              </div>
+            </div>
+            <div class="text-2xl font-black text-slate-900" id="kpi-total-emp">0</div>
+            <div class="text-[10px] text-slate-400 mt-0.5" id="kpi-sub-total">Siswa & Guru aktif</div>
+          </div>
+
+          <div class="bg-white p-4 rounded-2xl card-shadow border border-slate-200">
+            <div class="flex items-center justify-between text-slate-500 mb-2">
+              <span class="text-xs font-bold uppercase">Tepat Waktu</span>
+              <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm font-bold">
+                <i class="fa-solid fa-circle-check"></i>
+              </div>
+            </div>
+            <div class="text-2xl font-black text-emerald-600" id="kpi-present">0</div>
+            <div class="text-[10px] text-emerald-700/60 mt-0.5">&le; 07:15 WIB</div>
+          </div>
+
+          <div class="bg-white p-4 rounded-2xl card-shadow border border-slate-200">
+            <div class="flex items-center justify-between text-slate-500 mb-2">
+              <span class="text-xs font-bold uppercase">Terlambat</span>
+              <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-sm font-bold">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+              </div>
+            </div>
+            <div class="text-2xl font-black text-amber-600" id="kpi-late">0</div>
+            <div class="text-[10px] text-amber-700/60 mt-0.5">&gt; 07:15 WIB</div>
+          </div>
+
+          <div class="bg-white p-4 rounded-2xl card-shadow border border-slate-200">
+            <div class="flex items-center justify-between text-slate-500 mb-2">
+              <span class="text-xs font-bold uppercase">Izin / Sakit / Disp</span>
+              <div class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center text-sm font-bold">
+                <i class="fa-solid fa-notes-medical"></i>
+              </div>
+            </div>
+            <div class="text-2xl font-black text-purple-600" id="kpi-excused">0</div>
+            <div class="text-[10px] text-purple-700/60 mt-0.5">Surat resmi disetujui</div>
+          </div>
+
+          <div class="col-span-2 md:col-span-1 bg-white p-4 rounded-2xl card-shadow border border-slate-200">
+            <div class="flex items-center justify-between text-slate-500 mb-2">
+              <span class="text-xs font-bold uppercase">Belum Hadir (Alfa)</span>
+              <div class="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center text-sm font-bold">
+                <i class="fa-solid fa-user-xmark"></i>
+              </div>
+            </div>
+            <div class="text-2xl font-black text-red-600" id="kpi-absent">0</div>
+            <div class="text-[10px] text-red-700/60 mt-0.5">Belum absen hari ini</div>
+          </div>
+        </div>
+
+        <!-- 7-Day Trend Chart & Live Feed -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="lg:col-span-2 bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="font-bold text-slate-900 text-base flex items-center space-x-2">
+                <i class="fa-solid fa-chart-line text-blue-600"></i>
+                <span>Grafik Kehadiran Sekolah (7 Hari Terakhir)</span>
+              </h3>
+            </div>
+            <div class="h-64">
+              <canvas id="chart-attendance-trend"></canvas>
+            </div>
+          </div>
+
+          <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="font-bold text-slate-900 text-base flex items-center space-x-2">
+                <i class="fa-solid fa-bell text-blue-600"></i>
+                <span>Presensi Terbaru Hari Ini</span>
+              </h3>
+            </div>
+            <div class="space-y-3 overflow-y-auto max-h-64 pr-1" id="dash-recent-activities">
+              <div class="text-center text-slate-400 text-xs py-8">Memuat aktivitas...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ADMIN TAB 2: MONITORING KEHADIRAN SEKOLAH -->
+      <div id="panel-adm-today" class="hidden space-y-4">
+        <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 class="font-bold text-slate-900 text-lg">Monitoring Presensi Hari Ini</h3>
+              <p class="text-xs text-slate-500">Pantau kehadiran siswa per kelas dan guru secara realtime</p>
+            </div>
+
+            <!-- Filters -->
+            <div class="flex flex-wrap items-center gap-2">
+              <select id="filter-today-role" class="px-3 py-1.5 border border-slate-200 rounded-xl text-xs bg-slate-50 font-semibold">
+                <option value="">Semua Peran (Siswa & Guru)</option>
+                <option value="student">Siswa Saja</option>
+                <option value="teacher">Guru & Staf Saja</option>
+                <option value="admin">Kepala Sekolah / Admin</option>
+              </select>
+              <select id="filter-today-dept" class="px-3 py-1.5 border border-slate-200 rounded-xl text-xs bg-slate-50">
+                <option value="">Semua Kelas & Unit</option>
+              </select>
+              <select id="filter-today-status" class="px-3 py-1.5 border border-slate-200 rounded-xl text-xs bg-slate-50">
+                <option value="">Semua Status</option>
+                <option value="present">Tepat Waktu</option>
+                <option value="late">Terlambat</option>
+                <option value="sick">Sakit</option>
+                <option value="dispensation">Dispensasi</option>
+                <option value="excused">Izin</option>
+              </select>
+              <button id="btn-refresh-today" class="px-3 py-1.5 bg-blue-50 text-blue-700 font-semibold rounded-xl text-xs hover:bg-blue-100 transition">
+                <i class="fa-solid fa-arrows-rotate mr-1"></i> Refresh
+              </button>
+            </div>
+          </div>
+
+          <!-- Table -->
+          <div class="overflow-x-auto rounded-xl border border-slate-200">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-slate-50 text-slate-600 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                <tr>
+                  <th class="p-3">Siswa / Guru</th>
+                  <th class="p-3">Kelas / Unit</th>
+                  <th class="p-3">Jam Masuk</th>
+                  <th class="p-3">Jam Pulang</th>
+                  <th class="p-3">Status</th>
+                  <th class="p-3">Jarak ke Gerbang</th>
+                  <th class="p-3">Foto & Detail</th>
+                </tr>
+              </thead>
+              <tbody id="table-adm-today" class="divide-y divide-slate-100">
+                <tr>
+                  <td colspan="7" class="p-4 text-center text-slate-400">Memuat data presensi...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ADMIN TAB 3: REKAP & LAPORAN KELAS -->
+      <div id="panel-adm-report" class="hidden space-y-4">
+        <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 class="font-bold text-slate-900 text-lg">Rekapitulasi Kehadiran & Laporan Sekolah</h3>
+              <p class="text-xs text-slate-500">Filter bulanan, unduh CSV/Excel untuk rekap nilai sikap, atau cetak laporan resmi</p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <input type="month" id="report-month" class="px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold bg-slate-50" />
+              <button id="btn-export-csv" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center space-x-1.5">
+                <i class="fa-solid fa-file-excel"></i>
+                <span>Export CSV/Excel</span>
+              </button>
+              <button id="btn-open-print-preview" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center space-x-1.5">
+                <i class="fa-solid fa-print"></i>
+                <span>Cetak Laporan Sekolah</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Table Rekap -->
+          <div class="overflow-x-auto rounded-xl border border-slate-200">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-slate-50 text-slate-600 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                <tr>
+                  <th class="p-3">Tanggal</th>
+                  <th class="p-3">Siswa / Guru</th>
+                  <th class="p-3">Kelas / Unit</th>
+                  <th class="p-3">Jam Masuk</th>
+                  <th class="p-3">Jam Pulang</th>
+                  <th class="p-3">Status</th>
+                  <th class="p-3">Keterangan</th>
+                </tr>
+              </thead>
+              <tbody id="table-adm-report" class="divide-y divide-slate-100">
+                <tr>
+                  <td colspan="7" class="p-4 text-center text-slate-400">Pilih bulan dan klik tampilkan...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ADMIN TAB 4: PERSETUJUAN IZIN & DISPENSASI -->
+      <div id="panel-adm-leaves" class="hidden space-y-4">
+        <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
+          <div>
+            <h3 class="font-bold text-slate-900 text-lg">Persetujuan Izin, Sakit & Dispensasi</h3>
+            <p class="text-xs text-slate-500">Tinjau surat dokter, surat orang tua, dan permohonan dispensasi lomba sekolah</p>
+          </div>
+
+          <div class="overflow-x-auto rounded-xl border border-slate-200">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-slate-50 text-slate-600 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                <tr>
+                  <th class="p-3">Pemohon</th>
+                  <th class="p-3">Jenis</th>
+                  <th class="p-3">Periode</th>
+                  <th class="p-3">Alasan</th>
+                  <th class="p-3">Lampiran Surat</th>
+                  <th class="p-3">Status</th>
+                  <th class="p-3">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="table-adm-leaves" class="divide-y divide-slate-100">
+                <tr>
+                  <td colspan="7" class="p-4 text-center text-slate-400">Memuat data pengajuan...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ADMIN TAB 5: DATA SISWA & GURU -->
+      <div id="panel-adm-emp" class="hidden space-y-4">
+        <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 class="font-bold text-slate-900 text-lg">Data Siswa, Guru & Staf Sekolah</h3>
+              <p class="text-xs text-slate-500">Kelola data NISN, NIP, kelas, dan akun seluruh warga sekolah</p>
+            </div>
+            <button id="btn-modal-add-emp" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center space-x-1.5 self-start sm:self-auto">
+              <i class="fa-solid fa-user-plus"></i>
+              <span>Tambah Siswa / Guru Baru</span>
+            </button>
+          </div>
+
+          <!-- Table -->
+          <div class="overflow-x-auto rounded-xl border border-slate-200">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-slate-50 text-slate-600 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                <tr>
+                  <th class="p-3">NISN / NIP & Nama</th>
+                  <th class="p-3">Email & Kontak</th>
+                  <th class="p-3">Kelas / Unit & Jabatan</th>
+                  <th class="p-3">Kategori Peran</th>
+                  <th class="p-3">Status</th>
+                  <th class="p-3">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="table-adm-employees" class="divide-y divide-slate-100">
+                <tr>
+                  <td colspan="6" class="p-4 text-center text-slate-400">Memuat data warga sekolah...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ADMIN TAB 6: PENGATURAN SEKOLAH -->
+      <div id="panel-adm-settings" class="hidden space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          <!-- Left Form: Settings -->
+          <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
+            <h3 class="font-bold text-slate-900 text-base flex items-center space-x-2">
+              <i class="fa-solid fa-sliders text-blue-600"></i>
+              <span>Konfigurasi Jam Sekolah & Gerbang</span>
+            </h3>
+
+            <form id="form-settings" class="space-y-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nama Sekolah / Lembaga</label>
+                <input type="text" id="set-office-name" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500" />
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Jam Masuk Sekolah</label>
+                  <input type="time" id="set-start-time" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Jam Pulang Sekolah</label>
+                  <input type="time" id="set-end-time" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Toleransi Masuk (Gerbang Ditutup)</label>
+                  <div class="relative">
+                    <input type="number" id="set-late-tolerance" min="0" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500" />
+                    <span class="absolute inset-y-0 right-0 flex items-center pr-3 text-xs text-slate-400">menit</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Radius Jangkauan Gerbang</label>
+                  <div class="relative">
+                    <input type="number" id="set-radius" min="10" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500" />
+                    <span class="absolute inset-y-0 right-0 flex items-center pr-3 text-xs text-slate-400">meter</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Latitude Titik Sekolah</label>
+                  <input type="number" step="any" id="set-lat" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Longitude Titik Sekolah</label>
+                  <input type="number" step="any" id="set-lng" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+
+              <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                <div>
+                  <div class="text-xs font-bold text-slate-800">Batasi Radius Geolocation Sekolah</div>
+                  <div class="text-[11px] text-slate-500">Tolak absensi jika siswa berada di luar pagar sekolah</div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="set-enable-radius" class="sr-only peer">
+                  <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+
+              <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow-md transition">
+                Simpan Pengaturan Sekolah
+              </button>
+            </form>
+          </div>
+
+          <!-- Right: Map Picker -->
+          <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4 flex flex-col">
+            <div>
+              <h3 class="font-bold text-slate-900 text-base flex items-center space-x-2">
+                <i class="fa-solid fa-map-location-dot text-blue-600"></i>
+                <span>Titik Lokasi Gerbang Sekolah di Peta</span>
+              </h3>
+              <p class="text-xs text-slate-500 mt-0.5">Klik di peta untuk memperbarui koordinat gerbang sekolah.</p>
+            </div>
+
+            <div id="admin-map" class="flex-1 w-full min-h-[300px] rounded-xl border border-slate-200"></div>
+
+            <div class="text-xs text-slate-500 bg-slate-50 p-2.5 rounded-lg border border-slate-100 flex items-center space-x-2">
+              <i class="fa-solid fa-info-circle text-blue-500"></i>
+              <span>Lingkaran biru di peta mewakili jangkauan presensi gerbang sekolah.</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+
+  <!-- ======================================================== -->
+  <!-- MODALS & DIALOGS -->
+  <!-- ======================================================== -->
+
+  <!-- MODAL: DETAIL PRESENSI SISWA / GURU -->
+  <div id="modal-detail-attendance" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white max-w-lg w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+        <h4 class="font-bold text-slate-900 text-base flex items-center space-x-2">
+          <i class="fa-solid fa-id-card text-blue-600"></i>
+          <span>Detail Bukti Presensi Siswa / Guru</span>
+        </h4>
+        <button class="btn-close-modal text-slate-400 hover:text-slate-600 text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <span class="text-[11px] font-bold text-slate-500 uppercase block mb-1">Foto Masuk Sekolah</span>
+            <div class="aspect-4/3 bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center">
+              <img id="detail-photo-in" src="" alt="Foto Masuk" class="w-full h-full object-cover hidden" />
+              <span id="detail-no-photo-in" class="text-xs text-slate-400 font-semibold">Tidak ada foto</span>
+            </div>
+          </div>
+          <div>
+            <span class="text-[11px] font-bold text-slate-500 uppercase block mb-1">Foto Pulang Sekolah</span>
+            <div class="aspect-4/3 bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center">
+              <img id="detail-photo-out" src="" alt="Foto Pulang" class="w-full h-full object-cover hidden" />
+              <span id="detail-no-photo-out" class="text-xs text-slate-400 font-semibold">Tidak ada foto</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-2 text-xs bg-slate-50 p-3 rounded-xl border border-slate-100">
+          <div class="flex justify-between"><span class="text-slate-500">Nama Lengkap:</span><span class="font-bold text-slate-900" id="detail-name">-</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Tanggal:</span><span class="font-bold text-slate-900" id="detail-date">-</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Jam Masuk / Pulang:</span><span class="font-bold text-slate-900" id="detail-times">-</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Status:</span><span class="font-bold" id="detail-status">-</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Jarak ke Gerbang:</span><span class="font-bold text-slate-900" id="detail-distance">-</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Catatan:</span><span class="font-medium text-slate-700" id="detail-notes">-</span></div>
+        </div>
+
+        <div>
+          <span class="text-[11px] font-bold text-slate-500 uppercase block mb-1">Peta Titik Absen di Sekolah</span>
+          <div id="detail-map" class="w-full h-44 rounded-xl border border-slate-200"></div>
+        </div>
+      </div>
+
+      <div class="p-4 bg-slate-50 border-t border-slate-100 text-right">
+        <button class="btn-close-modal px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs transition">
+          Tutup
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: TAMBAH / EDIT SISWA & GURU -->
+  <div id="modal-employee-form" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+        <h4 class="font-bold text-slate-900 text-base flex items-center space-x-2" id="modal-emp-title">
+          <i class="fa-solid fa-user-plus text-blue-600"></i>
+          <span>Tambah Siswa / Guru Baru</span>
+        </h4>
+        <button class="btn-close-modal text-slate-400 hover:text-slate-600 text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="form-save-employee" class="p-5 space-y-3">
+        <input type="hidden" id="emp-form-id" value="" />
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">NISN (Siswa) / NIP (Guru)</label>
+          <input type="text" id="emp-form-nip" required placeholder="Contoh NISN: 0061234567" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-blue-500" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nama Lengkap</label>
+          <input type="text" id="emp-form-name" required placeholder="Nama Siswa atau Guru" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Email Sekolah</label>
+            <input type="email" id="emp-form-email" required placeholder="nama@sekolah.sch.id" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Password</label>
+            <input type="password" id="emp-form-password" placeholder="Kosongkan jika tdk diubah" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Kelas / Unit</label>
+            <input type="text" id="emp-form-dept" required placeholder="Contoh: XII RPL 1 / Dewan Guru" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Jabatan / Status</label>
+            <input type="text" id="emp-form-position" required placeholder="Siswa / Wali Kelas / Ketua Kelas" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nomor Telepon/WA</label>
+            <input type="text" id="emp-form-phone" placeholder="08123456789" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Peran Akun</label>
+            <select id="emp-form-role" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500">
+              <option value="student">Siswa</option>
+              <option value="teacher">Guru / Staf</option>
+              <option value="admin">Kepala Sekolah / Admin</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pt-3 flex space-x-2">
+          <button type="button" class="btn-close-modal flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">Batal</button>
+          <button type="submit" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md transition">Simpan Data</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: APPROVE / REJECT IZIN -->
+  <div id="modal-review-leave" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+        <h4 class="font-bold text-slate-900 text-base flex items-center space-x-2">
+          <i class="fa-solid fa-stamp text-blue-600"></i>
+          <span>Tinjau Permohonan Izin / Dispensasi</span>
+        </h4>
+        <button class="btn-close-modal text-slate-400 hover:text-slate-600 text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4">
+        <input type="hidden" id="review-leave-id" value="" />
+
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs space-y-1.5">
+          <div><span class="text-slate-500">Pemohon:</span> <strong class="text-slate-900" id="review-leave-name">-</strong></div>
+          <div><span class="text-slate-500">Jenis:</span> <span class="font-semibold" id="review-leave-type">-</span></div>
+          <div><span class="text-slate-500">Periode:</span> <strong class="text-slate-900" id="review-leave-dates">-</strong></div>
+          <div><span class="text-slate-500">Alasan:</span> <p class="text-slate-800 italic mt-0.5" id="review-leave-reason">-</p></div>
+        </div>
+
+        <div id="review-attachment-box" class="hidden">
+          <span class="text-xs font-bold text-slate-700 block mb-1">Bukti Surat:</span>
+          <div class="max-h-48 overflow-hidden rounded-xl border border-slate-200">
+            <img id="review-attachment-img" src="" alt="Bukti Surat" class="w-full object-contain" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Catatan Pihak Sekolah (Opsional)</label>
+          <input type="text" id="review-leave-notes" placeholder="Catatan persetujuan / alasan penolakan..."
+            class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500" />
+        </div>
+
+        <div class="flex space-x-2 pt-2">
+          <button id="btn-reject-leave" class="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center justify-center space-x-1">
+            <i class="fa-solid fa-xmark"></i>
+            <span>Tolak</span>
+          </button>
+          <button id="btn-approve-leave" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center justify-center space-x-1">
+            <i class="fa-solid fa-check"></i>
+            <span>Setujui</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PRINT PREVIEW LAPORAN SEKOLAH -->
+  <div id="modal-print-preview" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white max-w-4xl w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="p-4 border-b border-slate-100 flex items-center justify-between no-print">
+        <h4 class="font-bold text-slate-900 text-base flex items-center space-x-2">
+          <i class="fa-solid fa-print text-blue-600"></i>
+          <span>Pratinjau Cetak Laporan Kehadiran Sekolah</span>
+        </h4>
+        <div class="flex items-center space-x-2">
+          <button onclick="window.print()" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-md transition">
+            <i class="fa-solid fa-print mr-1"></i> Cetak Laporan
+          </button>
+          <button class="btn-close-modal text-slate-400 hover:text-slate-600 text-lg p-1">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Printable Area -->
+      <div id="print-area" class="p-8 overflow-y-auto flex-1 text-slate-900 bg-white">
+        <!-- Kop Surat Sekolah -->
+        <div class="border-b-2 border-slate-900 pb-4 mb-6 flex items-center justify-between">
+          <div class="flex items-center space-x-4">
+            <div class="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center text-white text-2xl font-bold">
+              <i class="fa-solid fa-graduation-cap"></i>
+            </div>
+            <div>
+              <h2 class="text-xl font-black uppercase tracking-wider" id="print-header-company">SMA Negeri 1 PresensiKu Digital</h2>
+              <p class="text-xs text-slate-600" id="print-header-address">Rekapitulasi Presensi & Disiplin Kehadiran Siswa/Guru</p>
+              <p class="text-[11px] text-slate-500">Dicetak pada: <span id="print-generated-date"></span></p>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="text-xs font-bold uppercase tracking-widest text-slate-500 block">Laporan Presensi</span>
+            <span class="text-base font-black text-blue-800" id="print-period-title">Periode: -</span>
+          </div>
+        </div>
+
+        <!-- Tabel Laporan Rekap Sekolah -->
+        <table class="w-full text-left text-xs border border-slate-300 mb-8">
+          <thead class="bg-slate-100 border-b border-slate-300 font-bold uppercase">
+            <tr>
+              <th class="p-2 border-r border-slate-300 text-center w-10">No</th>
+              <th class="p-2 border-r border-slate-300">Tanggal</th>
+              <th class="p-2 border-r border-slate-300">NISN / NIP & Nama</th>
+              <th class="p-2 border-r border-slate-300">Kelas / Unit</th>
+              <th class="p-2 border-r border-slate-300 text-center">Masuk</th>
+              <th class="p-2 border-r border-slate-300 text-center">Pulang</th>
+              <th class="p-2 border-r border-slate-300 text-center">Status</th>
+              <th class="p-2">Keterangan</th>
+            </tr>
+          </thead>
+          <tbody id="print-table-body" class="divide-y divide-slate-200">
+            <!-- Dynamic rows -->
+          </tbody>
+        </table>
+
+        <!-- Kolom Tanda Tangan Sekolah -->
+        <div class="grid grid-cols-2 gap-8 text-center text-xs mt-12 pt-6">
+          <div>
+            <p class="text-slate-500 mb-16">Mengetahui,<br><strong>Guru Piket / Kesiswaan</strong></p>
+            <p class="font-bold underline text-slate-800">( Ibu Ratna Dewi, S.Pd )</p>
+          </div>
+          <div>
+            <p class="text-slate-500 mb-16">Mengesahkan,<br><strong>Kepala Sekolah</strong></p>
+            <p class="font-bold underline text-slate-800" id="print-hr-name">( Drs. H. Mulyadi, M.Pd )</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Client Application Logic -->
+  <script src="/js/app.js"></script>
+</body>
+</html>

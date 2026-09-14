@@ -1,0 +1,22 @@
+{
+  "name": "web-absensi",
+  "version": "1.0.0",
+  "description": "Sistem Absensi Online PresensiKu",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node test/test_api.js && node test/test_advanced.js"
+  },
+  "dependencies": {
+    "sql.js": "^1.14.2"
+  },
+  "keywords": [
+    "absensi",
+    "presensi",
+    "attendance",
+    "hrm"
+  ],
+  "author": "",
+  "license": "MIT"
+}
