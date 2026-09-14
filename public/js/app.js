@@ -135,7 +135,7 @@ async function renderApp() {
   document.getElementById('main-header').classList.remove('hidden');
   document.getElementById('nav-user-name').textContent = user.name;
   
-  const roleLabel = user.role === 'admin' ? 'KEPALA SEKOLAH / ADMIN' :
+  const roleLabel = user.role === 'admin' ? 'KEPALA SEKOLAH' :
                     user.role === 'teacher' ? 'DEWAN GURU' :
                     user.role === 'parent' ? 'ORANG TUA / WALI' : 'SISWA';
   document.getElementById('nav-user-role').textContent = roleLabel;
@@ -1365,7 +1365,7 @@ document.getElementById('filter-today-dept').addEventListener('change', loadAdmi
 document.getElementById('filter-today-status').addEventListener('change', loadAdminTodayAttendance);
 document.getElementById('btn-refresh-today').addEventListener('click', loadAdminTodayAttendance);
 
-// 3. Rekap & Laporan Kelas
+// 3. Rekap & Kehadiran
 async function loadAdminReport() {
   const monthInput = document.getElementById('report-month');
   if (!monthInput.value) {
@@ -1549,7 +1549,7 @@ async function submitLeaveReview(status) {
   }
 }
 
-// 5. Data Siswa & Guru Admin
+// 5. Data Siswa, Guru & Orang Tua Admin
 async function loadAdminEmployees() {
   const tbody = document.getElementById('table-adm-employees');
   tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Memuat warga sekolah...</td></tr>`;
@@ -1874,7 +1874,7 @@ async function openProfileModal() {
     }
     const p = data.profile;
 
-    document.getElementById('profile-nip').textContent = p.nip || '-';
+    document.getElementById('profile-nip').value = p.nip || '';
     document.getElementById('profile-name').value = p.name || '';
     document.getElementById('profile-phone').value = p.phone || '';
     document.getElementById('profile-entry-year').value = p.entry_year || '';
@@ -2086,7 +2086,7 @@ function initThemeToggle() {
   const toggle = () => {
     const next = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
     applyTheme(next);
-    showToast(next === 'dark' ? 'Mode gelap aktif 🌙' : 'Mode terang aktif ☀️', 'info');
+    showToast(next === 'dark' ? 'Mode gelap aktif' : 'Mode terang aktif', 'info');
   };
 
   const btnHeader = document.getElementById('btn-theme-toggle');
