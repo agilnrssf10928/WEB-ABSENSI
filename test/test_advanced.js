@@ -124,7 +124,7 @@ async function runAdvancedTests() {
       headers: { Authorization: `Bearer ${adminToken}` }
     },
     {
-      nip: PARENT_NIP,
+      // TANPA NIP — akun orang tua harus bisa dibuat tanpa NIP (auto-generate)
       name: 'Bapak Rian',
       email: `ortu.rian.${uniq}@sekolah.sch.id`,
       password: 'ortu12345',
@@ -137,7 +137,38 @@ async function runAdvancedTests() {
   );
   assert.strictEqual(parentRes.statusCode, 200, JSON.stringify(parentRes.bodyJson));
   assert.strictEqual(parentRes.bodyJson.employee.role, 'parent');
-  console.log('✓ Advanced 5: Parent account created and linked to child');
+  assert.ok(parentRes.bodyJson.employee.nip.startsWith('ortu'), 'parent NIP should be auto-generated');
+  console.log('✓ Advanced 5: Parent account created WITHOUT NIP (auto:', parentRes.bodyJson.employee.nip, ') and linked to child');
+
+  // 5-pre. Akun orang tua TIDAK BISA scan QR & TIDAK BISA lihat QR murid
+  const parentLoginEarly = await request(
+    { hostname: 'localhost', port: TEST_PORT, path: '/api/auth/login', method: 'POST' },
+    { email: `ortu.rian.${uniq}@sekolah.sch.id`, password: 'ortu12345' }
+  );
+  assert.strictEqual(parentLoginEarly.statusCode, 200);
+  const parentTokenEarly = parentLoginEarly.bodyJson.token;
+
+  const parentScan = await request(
+    {
+      hostname: 'localhost',
+      port: TEST_PORT,
+      path: '/api/attendance/scan-qr',
+      method: 'POST',
+      headers: { Authorization: `Bearer ${parentTokenEarly}` }
+    },
+    { qr_data: `USER_ID:${RIAN_NIP}`, mode: 'in' }
+  );
+  assert.strictEqual(parentScan.statusCode, 403, JSON.stringify(parentScan.bodyJson));
+
+  const parentQrList = await request({
+    hostname: 'localhost',
+    port: TEST_PORT,
+    path: '/api/employees?role=student',
+    method: 'GET',
+    headers: { Authorization: `Bearer ${parentTokenEarly}` }
+  });
+  assert.strictEqual(parentQrList.statusCode, 403, JSON.stringify(parentQrList.bodyJson));
+  console.log('✓ Advanced 5-pre: Parent cannot scan (403) and cannot view student QR list (403)');
 
   // 5a. Admin scan kartu Rian mode 'in' -> absen masuk Rian (memicu notifikasi ke orang tua)
   const adminScanIn = await request(

@@ -306,7 +306,7 @@ function switchEmployeeTab(tabName) {
   document.getElementById('panel-emp-history').classList.toggle('hidden', tabName !== 'history');
   document.getElementById('panel-emp-leave').classList.toggle('hidden', tabName !== 'leave');
   // Siswa tidak bisa scan — panel scanner disembunyikan untuk role student
-  const isStudentView = state.currentUser && state.currentUser.role === 'student';
+  const isStudentView = state.currentUser && (state.currentUser.role === 'student' || state.currentUser.role === 'parent');
   document.getElementById('panel-emp-scan').classList.toggle('hidden', tabName !== 'scan' || isStudentView);
 
   // Panel khusus orang tua
@@ -357,7 +357,8 @@ async function initEmployeePortal() {
 function applyScanPermissionUi() {
   const user = state.currentUser;
   if (!user) return;
-  const isStudent = user.role === 'student';
+  // Siswa & orang tua: tanpa scanner & tanpa QR murid — hanya guru & admin yang mengelola QR
+  const isStudent = user.role === 'student' || user.role === 'parent';
 
   const scanTab = document.getElementById('tab-emp-scan');
   if (scanTab) scanTab.classList.toggle('hidden', isStudent);
@@ -386,7 +387,7 @@ function applyScanPermissionUi() {
 
 async function lookupStudentQr() {
   const user = state.currentUser;
-  if (!user || user.role === 'student') return;
+  if (!user || user.role === 'student' || user.role === 'parent') return;
 
   const term = document.getElementById('student-qr-search').value.trim().toLowerCase();
   const listBox = document.getElementById('student-qr-list');
@@ -496,7 +497,7 @@ function buildStudentQrGrid(term = '') {
 
 async function openStudentQrModal() {
   const user = state.currentUser;
-  if (!user || user.role === 'student') {
+  if (!user || user.role === 'student' || user.role === 'parent') {
     showToast('Hanya Guru & Admin yang bisa melihat QR murid.', 'error');
     return;
   }
@@ -758,8 +759,8 @@ function renderEmployeeMap(userLat, userLng, settings) {
 function renderMyQrCode() {
   const user = state.currentUser;
   if (!user) return;
-  // Siswa tidak punya QR sama sekali — hanya guru & admin yang punya kartu QR
-  if (user.role === 'student') return;
+  // Siswa & orang tua tidak punya kartu QR — hanya guru & admin
+  if (user.role === 'student' || user.role === 'parent') return;
   const container = document.getElementById('my-qr-code');
   if (!container || typeof QRCode === 'undefined') return;
   container.innerHTML = '';
@@ -954,10 +955,12 @@ async function handleQrResult(rawData) {
 }
 
 document.getElementById('btn-toggle-qr-scan').addEventListener('click', () => {
-  // Siswa tidak boleh memindai — hanya menampilkan QR
-  const isStudent = state.currentUser && state.currentUser.role === 'student';
-  if (isStudent) {
-    showToast('Akun siswa tidak bisa memindai QR. Tunjukkan kartu QR Anda ke guru piket/petugas.', 'error');
+  // Siswa & orang tua tidak boleh memindai
+  const role = state.currentUser ? state.currentUser.role : null;
+  if (role === 'student' || role === 'parent') {
+    showToast(role === 'parent'
+      ? 'Akun orang tua hanya untuk memantau anak, tidak bisa memindai QR.'
+      : 'Akun siswa tidak bisa memindai QR. Tunjukkan kartu QR Anda ke guru piket/petugas.', 'error');
     return;
   }
   if (qrState.scanning) {
@@ -1188,7 +1191,7 @@ document.getElementById('tab-adm-myclock').addEventListener('click', () => switc
 document.getElementById('btn-go-qr-tab').addEventListener('click', () => {
   const role = state.currentUser ? state.currentUser.role : null;
 
-  if (role === 'student') return;
+  if (role === 'student' || role === 'parent') return;
 
   if (role === 'admin') {
     const scanPanel = document.getElementById('panel-emp-scan');

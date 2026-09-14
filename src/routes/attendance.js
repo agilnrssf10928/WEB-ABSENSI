@@ -27,9 +27,12 @@ function handleAttendanceRoutes(req, res, url, user) {
   if (req.method === 'POST' && url.pathname === '/api/attendance/scan-qr') {
     if (!user) return res.json({ error: 'Unauthorized' }, 401);
 
-    // Akun siswa tidak dapat memindai QR — siswa hanya bisa menampilkan kartu QR-nya
-    if (user.role === 'student') {
-      return res.json({ error: 'Akun siswa tidak bisa memindai QR. Tunjukkan kartu QR Anda ke guru piket/petugas untuk discan.' }, 403);
+    // Akun siswa & orang tua tidak dapat memindai QR — hanya guru & admin
+    if (user.role === 'student' || user.role === 'parent') {
+      const reason = user.role === 'parent'
+        ? 'Akun orang tua hanya untuk memantau anak, tidak bisa memindai QR.'
+        : 'Akun siswa tidak bisa memindai QR. Tunjukkan kartu QR Anda ke guru piket/petugas untuk discan.';
+      return res.json({ error: reason }, 403);
     }
 
     const { qr_data, lat, lng, mode } = req.body || {};

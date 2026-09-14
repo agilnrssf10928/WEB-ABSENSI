@@ -5,8 +5,8 @@ function handleEmployeeRoutes(req, res, url, user) {
   // GET /api/employees (Daftar Siswa & Guru — khusus Guru & Admin saja)
   if (req.method === 'GET' && url.pathname === '/api/employees') {
     if (!user) return res.json({ error: 'Unauthorized' }, 401);
-    if (user.role === 'student') {
-      return res.json({ error: 'Akses ditolak. Data warga sekolah hanya bisa dilihat Guru & Admin.' }, 403);
+    if (user.role === 'student' || user.role === 'parent') {
+      return res.json({ error: 'Akses ditolak. Daftar & QR kartu murid hanya bisa dilihat Guru & Admin.' }, 403);
     }
 
     const role = url.searchParams.get('role');
@@ -42,11 +42,21 @@ function handleEmployeeRoutes(req, res, url, user) {
 
     const { nip, name, email, password, department, position, phone, role = 'student', child_nip, entry_year } = req.body || {};
 
-    if (!nip || !name || !email || !password) {
-      return res.json({ error: 'NISN / NIP, Nama, Email, dan Password wajib diisi.' }, 400);
+    if (!name || !email || !password) {
+      return res.json({ error: 'Nama, Email, dan Password wajib diisi.' }, 400);
     }
 
-    const existingNip = db.prepare('SELECT id FROM users WHERE nip = ?').get(nip);
+    // Akun orang tua boleh tanpa NIP — dibuat otomatis (ortu-xxxxxx) supaya mudah daftar
+    let finalNip = nip && String(nip).trim();
+    if (!finalNip && role === 'parent') {
+      do { finalNip = 'ortu' + Math.floor(100000 + Math.random() * 900000); }
+      while (db.prepare('SELECT id FROM users WHERE nip = ?').get(finalNip));
+    }
+    if (!finalNip) {
+      return res.json({ error: 'NISN / NIP wajib diisi untuk akun Siswa & Guru.' }, 400);
+    }
+
+    const existingNip = db.prepare('SELECT id FROM users WHERE nip = ?').get(finalNip);
     if (existingNip) return res.json({ error: 'NISN / NIP sudah terdaftar.' }, 400);
 
     const existingEmail = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
@@ -58,7 +68,7 @@ function handleEmployeeRoutes(req, res, url, user) {
     `);
 
     const result = insert.run(
-      nip,
+      finalNip,
       name,
       email,
       hashPassword(password),
@@ -78,7 +88,7 @@ function handleEmployeeRoutes(req, res, url, user) {
       }
     }
 
-    const created = db.prepare('SELECT id, nip, name, email, role, department, position, phone, is_active FROM users WHERE id = ?').get(parentId);
+    const created = db.prepare('SELECT id, nip, name, email, role, department, position, phone, is_active, entry_year FROM users WHERE id = ?').get(parentId);
     return res.json({ success: true, message: 'Data warga sekolah berhasil ditambahkan.', employee: created });
   }
 
