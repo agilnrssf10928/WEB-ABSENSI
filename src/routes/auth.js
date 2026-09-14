@@ -9,7 +9,8 @@ function handleAuthRoutes(req, res, url, user) {
       return res.json({ error: 'Email dan password wajib diisi' }, 400);
     }
 
-    const found = db.prepare('SELECT * FROM users WHERE email = ? AND is_active = 1').get(email);
+    // Login bisa pakai email ATAU username (kolom nip)
+    const found = db.prepare('SELECT * FROM users WHERE (email = ? OR nip = ?) AND is_active = 1').get(email, email);
     if (!found) {
       return res.json({ error: 'Email atau password salah' }, 401);
     }

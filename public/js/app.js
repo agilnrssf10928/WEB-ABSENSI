@@ -196,7 +196,7 @@ document.getElementById('form-login').addEventListener('submit', async e => {
       state.currentUser = data.user;
       renderApp();
     } else {
-      showToast(data.error || 'Login gagal, periksa email & password', 'error');
+      showToast(data.error || 'Login gagal, periksa username & password', 'error');
     }
   } catch (err) {
     showToast('Terjadi kesalahan koneksi server', 'error');

@@ -311,6 +311,24 @@ function initDb() {
     insertAttendance.run(5, yStr, null, null, 'dispensation', null, null, null, null, 'Dispensasi Lomba OSN Provinsi');
   }
 
+  // Akun admin utama — selalu dipastikan ada, juga di database lama
+  const agilExists = db.prepare('SELECT id FROM users WHERE nip = ?').get('agil');
+  if (!agilExists) {
+    db.prepare(`
+      INSERT INTO users (nip, name, email, password_hash, role, department, position, phone)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'agil',
+      'Agil',
+      'agil@sekolah.sch.id',
+      hashPassword('12345678'),
+      'admin',
+      'Pimpinan Sekolah',
+      'Kepala Sekolah',
+      '081234567890'
+    );
+  }
+
   if (!isVercel) persist();
 }
 
