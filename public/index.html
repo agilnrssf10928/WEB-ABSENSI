@@ -205,12 +205,12 @@
             </h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div class="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
-                <div class="font-bold text-emerald-800 text-sm mb-1"><i class="fa-solid fa-camera mr-1"></i> Siswa/Guru Absen Sendiri</div>
-                <p class="text-xs text-emerald-700">Buka tab <strong>Scan QR</strong> di bawah → <strong>Mulai Scan</strong> → scan kartu QR milik sendiri. Absen masuk & pulang langsung tercatat.</p>
+                <div class="font-bold text-emerald-800 text-sm mb-1"><i class="fa-solid fa-id-card mr-1"></i> Siswa: Tampilkan Kartu QR</div>
+                <p class="text-xs text-emerald-700">Siswa hanya menampilkan <strong>kartu QR di bawah ini</strong> ke guru piket. Scan kartu ini untuk absen masuk & pulang.</p>
               </div>
               <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
-                <div class="font-bold text-indigo-800 text-sm mb-1"><i class="fa-solid fa-users mr-1"></i> Mode Petugas (Guru Piket)</div>
-                <p class="text-xs text-indigo-700">Petugas membuka <strong>Scan QR</strong> lalu scan kartu siswa satu per satu saat siswa datang di gerbang.</p>
+                <div class="font-bold text-indigo-800 text-sm mb-1"><i class="fa-solid fa-users mr-1"></i> Guru/Admin: Pindai Kartu</div>
+                <p class="text-xs text-indigo-700">Hanya guru & admin yang bisa memindai. Pilih <strong>Scan Masuk</strong> atau <strong>Scan Pulang</strong>, lalu scan kartu siswa satu per satu di gerbang.</p>
               </div>
             </div>
             <button id="btn-go-qr-tab" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm shadow-md transition">
@@ -282,8 +282,7 @@
             <ul class="list-disc pl-4 space-y-1 text-slate-600">
               <li>Bel masuk berbunyi pukul <strong>07:00 WIB</strong>.</li>
               <li>Gerbang toleransi ditutup pukul <strong>07:15 WIB</strong> (lewat dari jam ini berstatus Terlambat).</li>
-              <li>Siswa & Guru wajib menyalakan izin kamera & GPS.</li>
-              <li>Pastikan foto selfie memperlihatkan wajah rapi berseragam.</li>
+              <li>Scan QR hanya bisa dilakukan akun <strong>Guru & Admin</strong>; siswa cukup menampilkan kartu QR.</li>
             </ul>
           </div>
         </div>
@@ -296,7 +295,23 @@
             <i class="fa-solid fa-camera-retro text-emerald-600"></i>
             <span>Scanner QR Absensi</span>
           </h3>
-          <p class="text-xs text-slate-500">Absen sendiri: scan kartu QR Anda. Mode petugas: scan kartu siswa/guru yang datang di gerbang.</p>
+          <p class="text-xs text-slate-500" id="scan-desc-student">Mode petugas: scan kartu siswa/guru yang datang di gerbang.</p>
+          <p class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3" id="scan-desc-teacher">
+            <i class="fa-solid fa-circle-info mr-1"></i> Hanya akun <strong>Guru & Admin</strong> yang bisa memindai QR.
+            Pilih <strong>Scan Masuk</strong> atau <strong>Scan Pulang</strong> sesuai kebutuhan.
+          </p>
+          <!-- Mode Scan: Masuk / Pulang / Otomatis -->
+          <div class="grid grid-cols-3 gap-2" id="qr-mode-group">
+            <button type="button" data-qr-mode="in" class="qr-mode-btn py-2.5 rounded-xl text-xs font-bold border transition bg-blue-600 text-white border-blue-600 shadow-md">
+              <i class="fa-solid fa-right-to-bracket mr-1"></i> Scan Masuk
+            </button>
+            <button type="button" data-qr-mode="out" class="qr-mode-btn py-2.5 rounded-xl text-xs font-bold border transition bg-white text-slate-600 border-slate-200 hover:bg-slate-50">
+              <i class="fa-solid fa-right-from-bracket mr-1"></i> Scan Pulang
+            </button>
+            <button type="button" data-qr-mode="auto" class="qr-mode-btn py-2.5 rounded-xl text-xs font-bold border transition bg-white text-slate-600 border-slate-200 hover:bg-slate-50">
+              <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Otomatis
+            </button>
+          </div>
           <div class="relative rounded-xl overflow-hidden bg-slate-900 aspect-video">
             <video id="qr-video" autoplay playsinline class="w-full h-full object-cover"></video>
             <div class="absolute inset-0 flex items-center justify-center pointer-events-none">

@@ -84,7 +84,7 @@ async function runAdvancedTests() {
   const rianToken = rianLogin.bodyJson.token;
   console.log('✓ Advanced 3: Newly registered student can login successfully');
 
-  // 4. Rian scan kartu miliknya sendiri via kamera -> absen masuk
+  // 4. Rian (siswa) TIDAK BISA scan — hanya guru & admin yang boleh memindai
   const rianCardScan = await request(
     {
       hostname: 'localhost',
@@ -95,11 +95,26 @@ async function runAdvancedTests() {
     },
     { qr_data: 'USER_ID:0098765432' }
   );
-  assert.strictEqual(rianCardScan.statusCode, 200, JSON.stringify(rianCardScan.bodyJson));
-  assert.strictEqual(rianCardScan.bodyJson.action, 'clock-in');
-  console.log('✓ Advanced 4: Student clock-in via own card QR');
+  assert.strictEqual(rianCardScan.statusCode, 403, JSON.stringify(rianCardScan.bodyJson));
+  console.log('✓ Advanced 4: Student cannot scan QR (403, only teachers/admins)');
 
-  // 5. Admin scan kartu Rian -> mencatat absen pulang untuk Rian
+  // 5a. Admin scan kartu Rian mode 'in' -> absen masuk Rian
+  const adminScanIn = await request(
+    {
+      hostname: 'localhost',
+      port: TEST_PORT,
+      path: '/api/attendance/scan-qr',
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` }
+    },
+    { qr_data: 'USER_ID:0098765432', mode: 'in' }
+  );
+  assert.strictEqual(adminScanIn.statusCode, 200, JSON.stringify(adminScanIn.bodyJson));
+  assert.strictEqual(adminScanIn.bodyJson.action, 'clock-in');
+  assert.strictEqual(adminScanIn.bodyJson.user.name, 'Rian Pratama');
+  console.log('✓ Advanced 5a: Admin scanned student card for clock-in');
+
+  // 5b. Admin scan kartu Rian mode 'out' -> absen pulang Rian
   const adminScanRian = await request(
     {
       hostname: 'localhost',
@@ -108,12 +123,11 @@ async function runAdvancedTests() {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}` }
     },
-    { qr_data: 'USER_ID:0098765432' }
+    { qr_data: 'USER_ID:0098765432', mode: 'out' }
   );
   assert.strictEqual(adminScanRian.statusCode, 200, JSON.stringify(adminScanRian.bodyJson));
   assert.strictEqual(adminScanRian.bodyJson.action, 'clock-out');
-  assert.strictEqual(adminScanRian.bodyJson.user.name, 'Rian Pratama');
-  console.log('✓ Advanced 5: Officer (admin) scanned student card for clock-out');
+  console.log('✓ Advanced 5b: Admin scanned student card for clock-out (mode out)');
 
   // 6. Admin memperbarui pengaturan gerbang sekolah
   const updateSettings = await request(

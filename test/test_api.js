@@ -113,8 +113,8 @@ async function runTests() {
   assert.strictEqual(gateQrGone.statusCode, 404);
   console.log('✓ Test 8 Passed: Gate QR endpoint removed (404)');
 
-  // 9. Absen masuk via scan kartu QR sendiri
-  const scanIn = await request(
+  // 9. Akun siswa TIDAK BISA memindai QR (hanya guru & admin)
+  const scanStudent = await request(
     {
       hostname: 'localhost',
       port: TEST_PORT,
@@ -122,12 +122,55 @@ async function runTests() {
       method: 'POST',
       headers: { Authorization: `Bearer ${studentToken}` }
     },
-    { qr_data: 'USER_ID:0090000001', lat: -6.3614144, lng: 107.0540305, notes: 'Scan kartu sendiri' }
+    { qr_data: 'USER_ID:0090000001', lat: -6.3614144, lng: 107.0540305 }
+  );
+  assert.strictEqual(scanStudent.statusCode, 403, JSON.stringify(scanStudent.bodyJson));
+  console.log('✓ Test 9 Passed: Student account cannot scan QR (403)');
+
+  // 9b. Admin memindai kartu siswa -> absen masuk (mode eksplisit)
+  const scanIn = await request(
+    {
+      hostname: 'localhost',
+      port: TEST_PORT,
+      path: '/api/attendance/scan-qr',
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` }
+    },
+    { qr_data: 'USER_ID:0090000001', lat: -6.3614144, lng: 107.0540305, mode: 'in' }
   );
   assert.strictEqual(scanIn.statusCode, 200, JSON.stringify(scanIn.bodyJson));
   assert.strictEqual(scanIn.bodyJson.action, 'clock-in');
   assert(['present', 'late'].includes(scanIn.bodyJson.status));
-  console.log('✓ Test 9 Passed: Student clock-in via own card QR');
+  console.log('✓ Test 9b Passed: Admin scanned student card -> clock-in');
+
+  // 9c. Admin scan lagi dengan mode 'out' -> absen pulang
+  const scanOut = await request(
+    {
+      hostname: 'localhost',
+      port: TEST_PORT,
+      path: '/api/attendance/scan-qr',
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` }
+    },
+    { qr_data: 'USER_ID:0090000001', mode: 'out' }
+  );
+  assert.strictEqual(scanOut.statusCode, 200, JSON.stringify(scanOut.bodyJson));
+  assert.strictEqual(scanOut.bodyJson.action, 'clock-out');
+  console.log('✓ Test 9c Passed: Explicit mode=out scan -> clock-out');
+
+  // 9d. Scan pulang dua kali harus ditolak
+  const scanOutAgain = await request(
+    {
+      hostname: 'localhost',
+      port: TEST_PORT,
+      path: '/api/attendance/scan-qr',
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` }
+    },
+    { qr_data: 'USER_ID:0090000001', mode: 'out' }
+  );
+  assert.strictEqual(scanOutAgain.statusCode, 400, JSON.stringify(scanOutAgain.bodyJson));
+  console.log('✓ Test 9d Passed: Double clock-out rejected (400)');
 
   // 10. Stats admin
   const statsRes = await request({

@@ -266,7 +266,8 @@ const qrState = {
   rafId: null,
   canvas: document.createElement('canvas'),
   lastResult: '',
-  lastResultAt: 0
+  lastResultAt: 0,
+  mode: 'in' // 'in' = Scan Masuk, 'out' = Scan Pulang, 'auto' = otomatis
 };
 
 function switchEmployeeTab(tabName) {
@@ -289,7 +290,9 @@ function switchEmployeeTab(tabName) {
   document.getElementById('panel-emp-clock').classList.toggle('hidden', tabName !== 'clock');
   document.getElementById('panel-emp-history').classList.toggle('hidden', tabName !== 'history');
   document.getElementById('panel-emp-leave').classList.toggle('hidden', tabName !== 'leave');
-  document.getElementById('panel-emp-scan').classList.toggle('hidden', tabName !== 'scan');
+  // Siswa tidak bisa scan — panel scanner disembunyikan untuk role student
+  const isStudentView = state.currentUser && state.currentUser.role === 'student';
+  document.getElementById('panel-emp-scan').classList.toggle('hidden', tabName !== 'scan' || isStudentView);
 
   stopQrScanner();
 
@@ -312,6 +315,22 @@ async function initEmployeePortal() {
   await loadTodayAttendance();
   initGeolocation();
   renderMyQrCode();
+  applyScanPermissionUi();
+}
+
+// Tampilkan/sembunyikan fitur scanner sesuai role: hanya guru & admin yang bisa memindai
+function applyScanPermissionUi() {
+  const user = state.currentUser;
+  if (!user) return;
+  const isStudent = user.role === 'student';
+
+  const scanTab = document.getElementById('tab-emp-scan');
+  if (scanTab) scanTab.classList.toggle('hidden', isStudent);
+
+  const descStudent = document.getElementById('scan-desc-student');
+  const descTeacher = document.getElementById('scan-desc-teacher');
+  if (descStudent) descStudent.classList.toggle('hidden', !isStudent);
+  if (descTeacher) descTeacher.classList.toggle('hidden', isStudent);
 }
 
 async function loadTodayAttendance() {
@@ -474,6 +493,13 @@ function renderEmployeeMap(userLat, userLng, settings) {
 function renderMyQrCode() {
   const user = state.currentUser;
   if (!user) return;
+  // Catatan kecil di kartu QR sesuai role
+  const qrCardDesc = document.querySelector('#my-qr-card p');
+  if (qrCardDesc) {
+    qrCardDesc.textContent = user.role === 'student'
+      ? 'Tunjukkan QR ini ke guru piket/petugas untuk discan — absen masuk & pulang langsung tercatat. Akun siswa tidak bisa memindai QR.'
+      : 'Tunjukkan QR ini ke petugas lain untuk discan, atau pindai sendiri lewat menu Scan QR (Scan Masuk / Scan Pulang).';
+  }
   const container = document.getElementById('my-qr-code');
   if (!container || typeof QRCode === 'undefined') return;
   container.innerHTML = '';
@@ -515,7 +541,8 @@ async function startQrScanner() {
   video.srcObject = qrState.stream;
   qrState.scanning = true;
   qrState.lastResult = '';
-  setQrStatus('Mencari QR Code... arahkan ke QR gerbang atau ID card');
+  const modeLabel = qrState.mode === 'in' ? 'SCAN MASUK' : qrState.mode === 'out' ? 'SCAN PULANG' : 'OTOMATIS';
+  setQrStatus(`Mode ${modeLabel} — arahkan ke kartu QR`);
   document.getElementById('btn-toggle-qr-scan').innerHTML = '<i class="fa-solid fa-stop mr-1"></i> Hentikan Scan';
 
   const tick = () => {
@@ -568,7 +595,8 @@ async function handleQrResult(rawData) {
       body: JSON.stringify({
         qr_data: rawData,
         lat: state.userCoords ? state.userCoords.lat : null,
-        lng: state.userCoords ? state.userCoords.lng : null
+        lng: state.userCoords ? state.userCoords.lng : null,
+        mode: qrState.mode
       })
     });
     const data = await res.json();
@@ -598,11 +626,38 @@ async function handleQrResult(rawData) {
 }
 
 document.getElementById('btn-toggle-qr-scan').addEventListener('click', () => {
+  // Siswa tidak boleh memindai — hanya menampilkan QR
+  const isStudent = state.currentUser && state.currentUser.role === 'student';
+  if (isStudent) {
+    showToast('Akun siswa tidak bisa memindai QR. Tunjukkan kartu QR Anda ke guru piket/petugas.', 'error');
+    return;
+  }
   if (qrState.scanning) {
     stopQrScanner();
   } else {
     startQrScanner();
   }
+});
+
+// Pilihan mode Scan Masuk / Scan Pulang / Otomatis
+document.querySelectorAll('.qr-mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    qrState.mode = btn.dataset.qrMode;
+    document.querySelectorAll('.qr-mode-btn').forEach(b => {
+      const active = b === btn;
+      b.classList.toggle('bg-blue-600', active);
+      b.classList.toggle('text-white', active);
+      b.classList.toggle('border-blue-600', active);
+      b.classList.toggle('shadow-md', active);
+      b.classList.toggle('bg-white', !active);
+      b.classList.toggle('text-slate-600', !active);
+      b.classList.toggle('border-slate-200', !active);
+    });
+    if (qrState.scanning) {
+      const modeLabel = qrState.mode === 'in' ? 'SCAN MASUK' : qrState.mode === 'out' ? 'SCAN PULANG' : 'OTOMATIS';
+      setQrStatus(`Mode ${modeLabel} — arahkan ke kartu QR`);
+    }
+  });
 });
 
 // Tombol di tab Absen: lompat ke tab QR
@@ -746,6 +801,7 @@ function placeClockPanelInAdminView() {
   clockPanel.classList.remove('hidden');
   if (scanPanel) scanPanel.classList.add('hidden');
   renderMyQrCode();
+  applyScanPermissionUi();
 }
 
 function switchAdminTab(tabName) {
@@ -791,10 +847,19 @@ function switchAdminTab(tabName) {
 document.getElementById('tab-adm-dash').addEventListener('click', () => switchAdminTab('dash'));
 document.getElementById('tab-adm-myclock').addEventListener('click', () => switchAdminTab('myclock'));
 
-// Tombol "Buka Scanner QR": siswa -> tab Scan; admin -> tampilkan scanner di area Absen Saya
+// Tombol "Buka Scanner QR": siswa -> lihat kartu QR; guru/admin -> scanner (Scan Masuk/Pulang)
 document.getElementById('btn-go-qr-tab').addEventListener('click', () => {
-  const isAdmin = state.currentUser && state.currentUser.role === 'admin';
-  if (isAdmin) {
+  const role = state.currentUser ? state.currentUser.role : null;
+
+  // Siswa tidak bisa scan — arahkan ke kartu QR pribadinya
+  if (role === 'student') {
+    const qrCard = document.getElementById('my-qr-card');
+    if (qrCard) qrCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    showToast('Akun siswa hanya menampilkan kartu QR. Guru piket/admin yang memindai.', 'info');
+    return;
+  }
+
+  if (role === 'admin') {
     const scanPanel = document.getElementById('panel-emp-scan');
     const clockPanel = document.getElementById('panel-emp-clock');
     if (!scanPanel) return;

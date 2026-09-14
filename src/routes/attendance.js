@@ -22,14 +22,22 @@ function handleAttendanceRoutes(req, res, url, user) {
     });
   }
 
-  // POST /api/attendance/scan-qr (Fitur Scan QR Siswa & Guru)
+  // POST /api/attendance/scan-qr (Hanya Guru & Admin yang bisa memindai QR)
   if (req.method === 'POST' && url.pathname === '/api/attendance/scan-qr') {
     if (!user) return res.json({ error: 'Unauthorized' }, 401);
 
-    const { qr_data, lat, lng } = req.body || {};
+    // Akun siswa tidak dapat memindai QR — siswa hanya bisa menampilkan kartu QR-nya
+    if (user.role === 'student') {
+      return res.json({ error: 'Akun siswa tidak bisa memindai QR. Tunjukkan kartu QR Anda ke guru piket/petugas untuk discan.' }, 403);
+    }
+
+    const { qr_data, lat, lng, mode } = req.body || {};
     if (!qr_data || typeof qr_data !== 'string') {
       return res.json({ error: 'Data QR Code tidak valid.' }, 400);
     }
+
+    // Mode scan: 'in' = absen masuk, 'out' = absen pulang, selain itu otomatis
+    const scanMode = mode === 'out' ? 'out' : mode === 'in' ? 'in' : 'auto';
 
     const now = getNowFormatted();
     const settings = db.prepare('SELECT * FROM settings WHERE id = 1').get();
@@ -44,6 +52,10 @@ function handleAttendanceRoutes(req, res, url, user) {
       }
 
       const existing = db.prepare('SELECT * FROM attendances WHERE user_id = ? AND date = ?').get(targetUser.id, now.date);
+
+      if (scanMode === 'out' && !existing) {
+        return res.json({ error: `${targetUser.name} (${targetUser.department}) belum absen masuk hari ini — tidak bisa absen pulang.` }, 400);
+      }
 
       if (!existing) {
         // Absen Masuk via scan kartu
@@ -71,6 +83,9 @@ function handleAttendanceRoutes(req, res, url, user) {
           attendance: saved
         });
       } else if (!existing.clock_out) {
+        if (scanMode === 'in') {
+          return res.json({ error: `${targetUser.name} (${targetUser.department}) sudah absen masuk pukul ${existing.clock_in}. Gunakan mode Scan Pulang untuk absen pulang.` }, 400);
+        }
         // Absen Pulang via scan kartu
         db.prepare(`
           UPDATE attendances
