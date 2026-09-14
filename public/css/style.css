@@ -325,6 +325,43 @@ h1, h2, h3, h4 {
     margin: 0;
     padding: 20px;
   }
+  /* Cetak semua QR murid */
+  #print-all-qr-area, #print-all-qr-area * {
+    visibility: visible;
+  }
+  #print-all-qr-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    display: block !important;
+    padding: 10px;
+  }
+  .print-qr-card {
+    display: inline-block;
+    width: 30%;
+    margin: 8px;
+    text-align: center;
+    border: 1px dashed #94a3b8;
+    border-radius: 8px;
+    padding: 10px 6px;
+    page-break-inside: avoid;
+    vertical-align: top;
+  }
+  .print-qr-card .print-qr-name {
+    font-weight: 800;
+    font-size: 12px;
+    margin-top: 6px;
+  }
+  .print-qr-card .print-qr-sub {
+    font-size: 10px;
+    color: #475569;
+  }
+  .print-qr-card .print-qr-nip {
+    font-size: 9px;
+    color: #94a3b8;
+    font-family: monospace;
+  }
   .no-print {
     display: none !important;
   }

@@ -349,10 +349,12 @@ function applyScanPermissionUi() {
   const myQrCard = document.getElementById('my-qr-card');
   if (myQrCard) myQrCard.classList.toggle('hidden', isStudent);
 
-  // Tombol buka scanner & catatan khusus siswa
+  // Tombol buka scanner, tombol QR murid, & catatan khusus siswa
   const goBtn = document.getElementById('btn-go-qr-tab');
+  const studentQrBtn = document.getElementById('btn-show-student-qr');
   const studentNote = document.getElementById('student-no-qr-note');
   if (goBtn) goBtn.classList.toggle('hidden', isStudent);
+  if (studentQrBtn) studentQrBtn.classList.toggle('hidden', isStudent);
   if (studentNote) studentNote.classList.toggle('hidden', !isStudent);
 
   const descStudent = document.getElementById('scan-desc-student');
@@ -429,6 +431,115 @@ function renderStudentQr(nip, name, dept, pos) {
   document.getElementById('student-qr-detail').textContent = `${pos || ''} — ${dept || ''}`;
   document.getElementById('student-qr-nip').textContent = `ID: ${nip}`;
   box.classList.remove('hidden');
+}
+
+// ========================================================
+// MODAL: QR MURID TERDAFTAR (grid semua kartu QR siswa)
+// ========================================================
+
+let allStudentsCache = [];
+
+function buildStudentQrGrid(term = '') {
+  const grid = document.getElementById('student-qr-grid');
+  if (!grid || typeof QRCode === 'undefined') return;
+
+  const t = term.trim().toLowerCase();
+  const students = allStudentsCache.filter(s =>
+    !t || s.name.toLowerCase().includes(t) || (s.department || '').toLowerCase().includes(t) || s.nip.includes(t)
+  );
+
+  if (students.length === 0) {
+    grid.innerHTML = `<div class="col-span-full text-center text-slate-400 text-xs py-6">Tidak ada murid yang cocok.</div>`;
+    return;
+  }
+
+  grid.innerHTML = students.map(s => `
+    <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center space-y-2">
+      <div class="qr-frame flex justify-center p-2 bg-white rounded-lg">
+        <div class="student-grid-qr" data-nip="${s.nip}"></div>
+      </div>
+      <div class="font-bold text-slate-900 text-xs truncate" title="${s.name}">${s.name}</div>
+      <div class="text-[10px] text-slate-500 truncate">${s.department || '-'}</div>
+      <div class="font-mono text-[9px] text-slate-400">${s.nip}</div>
+    </div>
+  `).join('');
+
+  // Render QR ke masing-masing kartu
+  grid.querySelectorAll('.student-grid-qr').forEach(el => {
+    new QRCode(el, {
+      text: `USER_ID:${el.dataset.nip}`,
+      width: 90,
+      height: 90,
+      colorDark: '#0f172a',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.L
+    });
+  });
+}
+
+async function openStudentQrModal() {
+  const user = state.currentUser;
+  if (!user || user.role === 'student') {
+    showToast('Hanya Guru & Admin yang bisa melihat QR murid.', 'error');
+    return;
+  }
+
+  const modal = document.getElementById('modal-student-qr');
+  const grid = document.getElementById('student-qr-grid');
+  const loading = document.getElementById('student-qr-grid-loading');
+  modal.classList.remove('hidden');
+  grid.innerHTML = '';
+  loading.classList.remove('hidden');
+
+  try {
+    const res = await fetch('/api/employees?role=student');
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'Gagal memuat');
+
+    allStudentsCache = data.employees || [];
+    loading.classList.add('hidden');
+    buildStudentQrGrid(document.getElementById('student-qr-modal-search').value || '');
+  } catch (e) {
+    loading.innerHTML = `<span class="text-red-500">Gagal memuat daftar murid.</span>`;
+  }
+}
+
+function printAllStudentQr() {
+  const area = document.getElementById('print-all-qr-area');
+  if (!area || typeof QRCode === 'undefined' || allStudentsCache.length === 0) {
+    showToast('Tidak ada data murid untuk dicetak.', 'error');
+    return;
+  }
+
+  const t = (document.getElementById('student-qr-modal-search').value || '').trim().toLowerCase();
+  const students = allStudentsCache.filter(s =>
+    !t || s.name.toLowerCase().includes(t) || (s.department || '').toLowerCase().includes(t) || s.nip.includes(t)
+  );
+
+  area.innerHTML = students.map(s => `
+    <div class="print-qr-card">
+      <div class="print-qr-code" data-nip="${s.nip}"></div>
+      <div class="print-qr-name">${s.name}</div>
+      <div class="print-qr-sub">${s.department || '-'} • ${s.position || 'Siswa'}</div>
+      <div class="print-qr-nip">${s.nip}</div>
+    </div>
+  `).join('');
+
+  area.querySelectorAll('.print-qr-code').forEach(el => {
+    new QRCode(el, {
+      text: `USER_ID:${el.dataset.nip}`,
+      width: 100,
+      height: 100,
+      colorDark: '#000000',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.L
+    });
+  });
+
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => { area.innerHTML = ''; }, 500);
+  }, 300);
 }
 
 async function loadTodayAttendance() {
@@ -965,6 +1076,34 @@ document.getElementById('btn-go-qr-tab').addEventListener('click', () => {
   } else {
     switchEmployeeTab('scan');
   }
+});
+
+// Tombol "Perlihatkan QR Murid yang Terdaftar" (khusus guru & admin)
+document.getElementById('btn-show-student-qr').addEventListener('click', openStudentQrModal);
+document.getElementById('btn-close-student-qr').addEventListener('click', () => {
+  document.getElementById('modal-student-qr').classList.add('hidden');
+});
+document.getElementById('btn-close-student-qr-2').addEventListener('click', () => {
+  document.getElementById('modal-student-qr').classList.add('hidden');
+});
+document.getElementById('btn-print-all-student-qr').addEventListener('click', printAllStudentQr);
+
+// Cari murid di modal (debounce)
+let studentQrModalSearchTimer = null;
+document.getElementById('student-qr-modal-search').addEventListener('input', () => {
+  clearTimeout(studentQrModalSearchTimer);
+  studentQrModalSearchTimer = setTimeout(() => buildStudentQrGrid(document.getElementById('student-qr-modal-search').value), 250);
+});
+
+// Tutup modal dengan Escape & klik luar
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    const m = document.getElementById('modal-student-qr');
+    if (m) m.classList.add('hidden');
+  }
+});
+document.getElementById('modal-student-qr').addEventListener('click', e => {
+  if (e.target.id === 'modal-student-qr') e.target.classList.add('hidden');
 });
 document.getElementById('tab-adm-today').addEventListener('click', () => switchAdminTab('today'));
 document.getElementById('tab-adm-report').addEventListener('click', () => switchAdminTab('report'));
