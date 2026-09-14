@@ -70,3 +70,27 @@ Jalankan pengujian:
 ```bash
 npm test
 ```
+
+---
+
+## 🗄️ Database Terpusat di GitHub
+
+Database SQLite disimpan sebagai file [`DATABASE`](https://github.com/agilnrssf10928/DATABASE-ABSENSI) di repo terpisah, sehingga data **selalu sinkron** antara local dan Vercel:
+
+- **Saat server start** → database otomatis diunduh dari raw URL repo DATABASE-ABSENSI.
+- **Setiap perubahan data** (absen, izin, pengaturan, dll.) → otomatis di-*commit* balik ke repo tersebut (debounce 3 detik).
+- **Tanpa internet/token** → fallback ke file lokal `database.sqlite`.
+
+Agar auto-save jalan, set environment variable berikut (wajib di Vercel → Project Settings → Environment Variables):
+
+```
+GITHUB_TOKEN = <Personal Access Token dengan akses repo DATABASE-ABSENSI>
+```
+
+Opsional:
+```
+DB_REMOTE_URL     = URL raw lain (default repo DATABASE-ABSENSI)
+DB_REMOTE_API_URL = URL API GitHub file DATABASE
+```
+
+Riwayat perubahan database bisa dipantau di tab *Commits* repo DATABASE-ABSENSI.
