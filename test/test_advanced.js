@@ -185,14 +185,44 @@ async function runAdvancedTests() {
       work_end_time: '15:00',
       late_tolerance_minutes: 15,
       office_radius_meters: 200,
-      office_lat: -6.3614144,
-      office_lng: 107.0540305,
+      office_lat: -6.36263,
+      office_lng: 107.06503,
       enable_radius_restriction: 1
     }
   );
   assert.strictEqual(updateSettings.statusCode, 200);
   assert.strictEqual(updateSettings.bodyJson.settings.office_name, 'SMK Pariwisata Digital Unggulan');
   console.log('✓ Advanced 6: School settings update verified');
+
+  // 6b. Validasi GPS: scan dari lokasi jauh dari gerbang DITOLAK (403)
+  const farScan = await request(
+    {
+      hostname: 'localhost',
+      port: TEST_PORT,
+      path: '/api/attendance/scan-qr',
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` }
+    },
+    { qr_data: `USER_ID:${RIAN_NIP}`, lat: -6.36263, lng: 107.07503, mode: 'in' } // ±1.1 km dari gerbang
+  );
+  assert.strictEqual(farScan.statusCode, 403, JSON.stringify(farScan.bodyJson));
+  assert.ok(farScan.bodyJson.error.includes('terlalu jauh'), 'error should mention distance');
+  console.log('✓ Advanced 6b: Scan from outside gate radius rejected:', farScan.bodyJson.error.slice(0, 60) + '...');
+
+  // 6c. Scan dari dalam radius gerbang lolos validasi GPS (lanjut ke logika absensi)
+  const nearScan = await request(
+    {
+      hostname: 'localhost',
+      port: TEST_PORT,
+      path: '/api/attendance/scan-qr',
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` }
+    },
+    { qr_data: `USER_ID:${RIAN_NIP}`, lat: -6.36263, lng: 107.06523, mode: 'in' } // ±22 m dari gerbang
+  );
+  assert.strictEqual(nearScan.statusCode, 400, JSON.stringify(nearScan.bodyJson)); // Rian sudah lengkap -> 400, bukan 403 GPS
+  assert.ok(!nearScan.bodyJson.error.includes('terlalu jauh'), 'near scan must pass GPS check');
+  console.log('✓ Advanced 6c: Scan within gate radius passes GPS check (', nearScan.bodyJson.error.slice(0, 50) + '...)');
 
   // 8. Orang tua login
   const parentLogin = await request(

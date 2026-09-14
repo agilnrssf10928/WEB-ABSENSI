@@ -43,6 +43,21 @@ function handleAttendanceRoutes(req, res, url, user) {
     const now = getNowFormatted();
     const settings = db.prepare('SELECT * FROM settings WHERE id = 1').get();
 
+    // Validasi GPS: hitung jarak pemindai ke titik gerbang sekolah.
+    // Toleransi realistis = radius gerbang + akurasi GPS perangkat + buffer 30m.
+    const scannerLat = lat != null ? Number(lat) : null;
+    const scannerLng = lng != null ? Number(lng) : null;
+    const gpsAccuracy = req.body && req.body.accuracy != null ? Number(req.body.accuracy) : 0;
+    const radiusLimit = settings.office_radius_meters + (Number.isFinite(gpsAccuracy) ? Math.min(gpsAccuracy, 200) : 0) + 30;
+    const scannerDistance = scannerLat != null && scannerLng != null
+      ? calculateDistance(scannerLat, scannerLng, settings.office_lat, settings.office_lng)
+      : null;
+    if (settings.enable_radius_restriction && scannerDistance != null && scannerDistance > radiusLimit) {
+      return res.json({
+        error: `Lokasi pemindai terlalu jauh dari gerbang sekolah (${scannerDistance}m > ${radiusLimit}m). Dekati gerbang sekolah lalu scan ulang.`
+      }, 403);
+    }
+
     // Skenario 1: Kartu Pelajar / ID Card Siswa atau Guru di-scan (oleh Guru Piket/Admin/Petugas)
     if (qr_data.startsWith('STUDENT_ID:') || qr_data.startsWith('USER_ID:')) {
       const nip = qr_data.replace(/^(STUDENT_ID|USER_ID):/, '').trim();
@@ -62,10 +77,10 @@ function handleAttendanceRoutes(req, res, url, user) {
         // Absen Masuk via scan kartu
         const status = evaluateStatus(now.timeMinutes, settings.work_start_time, settings.late_tolerance_minutes);
         const stmt = db.prepare(`
-          INSERT INTO attendances (user_id, date, clock_in, status, notes)
-          VALUES (?, ?, ?, ?, ?)
+          INSERT INTO attendances (user_id, date, clock_in, status, notes, lat_in, lng_in, distance_in)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `);
-        const result = stmt.run(targetUser.id, now.date, now.time, status, 'Presensi via Scan Kartu Pelajar/Guru');
+        const result = stmt.run(targetUser.id, now.date, now.time, status, 'Presensi via Scan Kartu Pelajar/Guru', scannerLat, scannerLng, scannerDistance);
         const saved = db.prepare('SELECT * FROM attendances WHERE id = ?').get(result.lastInsertRowid);
         notifyAttendance(targetUser, 'clock-in', now.time);
 
@@ -91,9 +106,9 @@ function handleAttendanceRoutes(req, res, url, user) {
         // Absen Pulang via scan kartu
         db.prepare(`
           UPDATE attendances
-          SET clock_out = ?, notes = notes || ' | Pulang via Scan Kartu'
+          SET clock_out = ?, lat_out = ?, lng_out = ?, distance_out = ?, notes = notes || ' | Pulang via Scan Kartu'
           WHERE id = ?
-        `).run(now.time, existing.id);
+        `).run(now.time, scannerLat, scannerLng, scannerDistance, existing.id);
 
         const updated = db.prepare('SELECT * FROM attendances WHERE id = ?').get(existing.id);
         notifyAttendance(targetUser, 'clock-out', now.time);

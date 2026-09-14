@@ -208,7 +208,7 @@ function initDb() {
   if (settingsCount.count === 0) {
     db.prepare(`
       INSERT INTO settings (id, office_name, office_lat, office_lng, office_radius_meters, enable_radius_restriction, work_start_time, work_end_time, late_tolerance_minutes)
-      VALUES (1, 'SMK Pariwisata Cikarang Selatan', -6.3614144, 107.0540305, 150, 1, '07:00', '15:00', 15)
+      VALUES (1, 'SMK Pariwisata Cikarang Selatan', -6.36263, 107.06503, 200, 1, '07:00', '15:00', 15)
     `).run();
   }
 

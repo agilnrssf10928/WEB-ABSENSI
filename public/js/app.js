@@ -6,6 +6,10 @@ const state = {
   currentUser: null,
   officeSettings: null,
   userCoords: null,
+  geoWatchId: null,
+  empUserMarker: null,
+  empAccuracyCircle: null,
+  adminMapUpdate: null,
   maps: {
     emp: null,
     admin: null,
@@ -620,45 +624,88 @@ function initGeolocation() {
     return;
   }
 
-  coordsLabel.textContent = 'Mencari lokasi GPS...';
+  // Hentikan watch lama supaya tidak menumpuk (dipanggil ulang saat ganti tab / refresh)
+  if (state.geoWatchId != null) {
+    navigator.geolocation.clearWatch(state.geoWatchId);
+    state.geoWatchId = null;
+  }
 
-  navigator.geolocation.getCurrentPosition(
-    pos => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-      state.userCoords = { lat, lng };
+  coordsLabel.textContent = 'Mencari lokasi GPS (realtime)...';
 
-      coordsLabel.textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  const updateGeolocationUi = pos => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    const accuracy = pos.coords.accuracy || 0;
+    state.userCoords = { lat, lng, accuracy };
 
-      const settings = state.officeSettings;
-      if (settings && settings.office_lat && settings.office_lng) {
-        const dist = calculateDistance(lat, lng, settings.office_lat, settings.office_lng);
-        distLabel.textContent = `${dist} meter`;
+    coordsLabel.textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)} (±${Math.round(accuracy)}m)`;
 
-        const within = !settings.enable_radius_restriction || dist <= settings.office_radius_meters;
-        if (within) {
-          radiusBox.className = 'flex items-center justify-between p-2 rounded-lg bg-emerald-50 border border-emerald-100';
-          radiusBadge.className = 'font-bold text-emerald-700';
-          radiusBadge.textContent = 'Di Area Gerbang Sekolah';
-        } else {
-          radiusBox.className = 'flex items-center justify-between p-2 rounded-lg bg-red-50 border border-red-100';
-          radiusBadge.className = 'font-bold text-red-700';
-          radiusBadge.textContent = `Di Luar Radius (${dist}m > ${settings.office_radius_meters}m)`;
-        }
+    const settings = state.officeSettings;
+    if (settings && settings.office_lat != null && settings.office_lng != null) {
+      const dist = calculateDistance(lat, lng, settings.office_lat, settings.office_lng);
+      distLabel.textContent = `${dist} meter`;
 
-        renderEmployeeMap(lat, lng, settings);
+      // Toleransi realistis: radius gerbang + akurasi GPS device + buffer 30m
+      const tolerance = settings.office_radius_meters + Math.round(accuracy) + 30;
+      const within = !settings.enable_radius_restriction || dist <= tolerance;
+      if (within) {
+        radiusBox.className = 'flex items-center justify-between p-2 rounded-lg bg-emerald-50 border border-emerald-100';
+        radiusBadge.className = 'font-bold text-emerald-700';
+        radiusBadge.textContent = 'Di Area Gerbang Sekolah';
+      } else {
+        radiusBox.className = 'flex items-center justify-between p-2 rounded-lg bg-red-50 border border-red-100';
+        radiusBadge.className = 'font-bold text-red-700';
+        radiusBadge.textContent = `Di Luar Radius (${dist}m > ${tolerance}m)`;
       }
-    },
+
+      if (!state.maps.emp) {
+        renderEmployeeMap(lat, lng, settings);
+      } else {
+        updateUserMarker(lat, lng, accuracy);
+      }
+    }
+  };
+
+  // watchPosition = realtime: ikuti gerakan pengguna tanpa perlu klik perbarui
+  state.geoWatchId = navigator.geolocation.watchPosition(
+    updateGeolocationUi,
     err => {
       console.warn('GPS Error:', err);
       coordsLabel.textContent = 'GPS diblokir / tidak aktif';
       distLabel.textContent = 'Lokasi gagal didapat';
-      if (state.officeSettings) {
-        renderEmployeeMap(state.officeSettings.office_lat, state.officeSettings.office_lng, state.officeSettings);
+      if (state.officeSettings && !state.maps.emp) {
+        renderEmployeeMap(null, null, state.officeSettings);
       }
     },
-    { enableHighAccuracy: true, timeout: 10000 }
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 2000 }
   );
+}
+
+// Perbarui marker posisi pengguna di peta yang sudah ada (tanpa render ulang peta)
+function updateUserMarker(lat, lng, accuracy) {
+  if (!state.maps.emp) return;
+  if (!state.empUserMarker) {
+    state.empUserMarker = L.circleMarker([lat, lng], {
+      color: '#ef4444',
+      fillColor: '#ef4444',
+      fillOpacity: 0.85,
+      radius: 8
+    }).addTo(state.maps.emp);
+    state.empUserMarker.bindPopup('<b>Posisi Anda Saat Ini</b>').openPopup();
+    state.empAccuracyCircle = L.circle([lat, lng], {
+      color: '#ef4444',
+      weight: 1,
+      fillColor: '#ef4444',
+      fillOpacity: 0.08,
+      radius: accuracy
+    }).addTo(state.maps.emp);
+  } else {
+    state.empUserMarker.setLatLng([lat, lng]);
+    if (state.empAccuracyCircle) {
+      state.empAccuracyCircle.setLatLng([lat, lng]);
+      state.empAccuracyCircle.setRadius(accuracy);
+    }
+  }
 }
 
 document.getElementById('btn-refresh-gps').addEventListener('click', () => {
@@ -673,6 +720,8 @@ function renderEmployeeMap(userLat, userLng, settings) {
   if (state.maps.emp) {
     state.maps.emp.remove();
   }
+  state.empUserMarker = null;
+  state.empAccuracyCircle = null;
 
   const map = L.map('emp-map').setView([settings.office_lat, settings.office_lng], 16);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -692,17 +741,11 @@ function renderEmployeeMap(userLat, userLng, settings) {
     .addTo(map)
     .bindPopup(`<b>${settings.office_name}</b><br>Radius Gerbang: ${settings.office_radius_meters}m`);
 
-  if (userLat && userLng) {
-    const userMarker = L.circleMarker([userLat, userLng], {
-      color: '#ef4444',
-      fillColor: '#ef4444',
-      fillOpacity: 0.8,
-      radius: 8
-    }).addTo(map);
-    userMarker.bindPopup('<b>Posisi Anda Saat Ini</b>').openPopup();
-  }
-
   state.maps.emp = map;
+
+  if (userLat != null && userLng != null) {
+    updateUserMarker(userLat, userLng, state.userCoords ? state.userCoords.accuracy : 0);
+  }
 }
 
 // ========================================================
@@ -810,6 +853,7 @@ async function handleQrResult(rawData) {
         qr_data: rawData,
         lat: state.userCoords ? state.userCoords.lat : null,
         lng: state.userCoords ? state.userCoords.lng : null,
+        accuracy: state.userCoords && state.userCoords.accuracy != null ? Math.round(state.userCoords.accuracy) : null,
         mode: qrState.mode
       })
     });
@@ -1613,6 +1657,7 @@ function renderAdminMap(settings) {
   if (state.maps.admin) {
     state.maps.admin.remove();
   }
+  state.adminMapUpdate = null;
 
   const map = L.map('admin-map').setView([settings.office_lat, settings.office_lng], 15);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -1634,6 +1679,7 @@ function renderAdminMap(settings) {
     officeMarker.setLatLng([lat, lng]);
     radiusCircle.setLatLng([lat, lng]);
   }
+  state.adminMapUpdate = updatePosition;
 
   officeMarker.on('dragend', e => {
     const pos = e.target.getLatLng();
@@ -1651,6 +1697,42 @@ function renderAdminMap(settings) {
 
   state.maps.admin = map;
 }
+
+// Kalibrasi cepat: ambil posisi GPS admin yang berdiri di gerbang sekolah
+function useMyGpsPosition() {
+  const btn = document.getElementById('btn-use-my-gps');
+  if (!navigator.geolocation) {
+    showToast('Browser tidak mendukung GPS', 'error');
+    return;
+  }
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Mencari GPS...';
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      // Ambil sampel stabil kedua jika akurasi masih kasar (>25m)
+      const finish = p => {
+        const lat = p.coords.latitude, lng = p.coords.longitude, acc = Math.round(p.coords.accuracy || 0);
+        if (state.adminMapUpdate) state.adminMapUpdate(lat, lng);
+        if (state.maps.admin) state.maps.admin.setView([lat, lng], 17);
+        showToast(`Titik gerbang diisi dari GPS Anda (±${acc}m). Klik "Simpan Pengaturan Sekolah".`, 'success');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-location-crosshairs mr-1"></i> Pakai Posisi GPS Saya (Berdiri di Gerbang)';
+      };
+      if (pos.coords.accuracy && pos.coords.accuracy > 25) {
+        navigator.geolocation.getCurrentPosition(finish, () => finish(pos), { enableHighAccuracy: true, timeout: 10000 });
+      } else {
+        finish(pos);
+      }
+    },
+    err => {
+      showToast('GPS gagal: ' + err.message + '. Coba di luar ruangan / aktifkan lokasi.', 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-location-crosshairs mr-1"></i> Pakai Posisi GPS Saya (Berdiri di Gerbang)';
+    },
+    { enableHighAccuracy: true, timeout: 15000 }
+  );
+}
+document.getElementById('btn-use-my-gps').addEventListener('click', useMyGpsPosition);
 
 document.getElementById('form-settings').addEventListener('submit', async e => {
   e.preventDefault();
