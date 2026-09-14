@@ -37,8 +37,8 @@ function handleSettingsRoutes(req, res, url, user) {
       WHERE id = 1
     `).run(
       office_name || 'Kantor Pusat PresensiKu',
-      office_lat != null ? Number(office_lat) : -6.3673896,
-      office_lng != null ? Number(office_lng) : 107.1066741,
+      office_lat != null ? Number(office_lat) : -6.3614144,
+      office_lng != null ? Number(office_lng) : 107.0540305,
       office_radius_meters != null ? Number(office_radius_meters) : 150,
       enable_radius_restriction != null ? Number(enable_radius_restriction) : 1,
       work_start_time || '08:00',

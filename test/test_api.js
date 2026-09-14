@@ -93,8 +93,8 @@ async function runTests() {
     },
     {
       photo: samplePhoto,
-      lat: -6.3673896,
-      lng: 107.1066741,
+      lat: -6.3614144,
+      lng: 107.0540305,
       notes: 'Hadir apel pagi'
     }
   );
@@ -112,8 +112,8 @@ async function runTests() {
     },
     {
       photo: samplePhoto,
-      lat: -6.3673896,
-      lng: 107.1066741,
+      lat: -6.3614144,
+      lng: 107.0540305,
       notes: 'Pulang sekolah'
     }
   );
@@ -140,8 +140,8 @@ async function runTests() {
     },
     {
       photo: samplePhoto,
-      lat: -6.3673896,
-      lng: 107.1066741,
+      lat: -6.3614144,
+      lng: 107.0540305,
       notes: 'Hadir memimpin upacara sekolah'
     }
   );

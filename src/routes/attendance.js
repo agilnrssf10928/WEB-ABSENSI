@@ -122,11 +122,18 @@ function handleAttendanceRoutes(req, res, url, user) {
       if (!existing) {
         // Absen Masuk
         const status = evaluateStatus(now.timeMinutes, settings.work_start_time, settings.late_tolerance_minutes);
+
+        // Catat lokasi scan jika tersedia (untuk monitoring jarak oleh admin)
+        let distance = null;
+        if (lat != null && lng != null && settings.office_lat != null && settings.office_lng != null) {
+          distance = calculateDistance(Number(lat), Number(lng), settings.office_lat, settings.office_lng);
+        }
+
         const stmt = db.prepare(`
-          INSERT INTO attendances (user_id, date, clock_in, status, notes)
-          VALUES (?, ?, ?, ?, ?)
+          INSERT INTO attendances (user_id, date, clock_in, status, lat_in, lng_in, distance_in, notes)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `);
-        const result = stmt.run(user.id, now.date, now.time, status, 'Presensi via Scan QR Gerbang Sekolah');
+        const result = stmt.run(user.id, now.date, now.time, status, lat, lng, distance, 'Presensi via Scan QR Gerbang Sekolah');
         const saved = db.prepare('SELECT * FROM attendances WHERE id = ?').get(result.lastInsertRowid);
 
         return res.json({
@@ -138,11 +145,16 @@ function handleAttendanceRoutes(req, res, url, user) {
         });
       } else if (!existing.clock_out) {
         // Absen Pulang
+        let distanceOut = null;
+        if (lat != null && lng != null && settings.office_lat != null && settings.office_lng != null) {
+          distanceOut = calculateDistance(Number(lat), Number(lng), settings.office_lat, settings.office_lng);
+        }
+
         db.prepare(`
           UPDATE attendances
-          SET clock_out = ?, notes = notes || ' | Pulang via QR Gerbang'
+          SET clock_out = ?, lat_out = ?, lng_out = ?, distance_out = ?, notes = notes || ' | Pulang via QR Gerbang'
           WHERE id = ?
-        `).run(now.time, existing.id);
+        `).run(now.time, lat, lng, distanceOut, existing.id);
 
         const updated = db.prepare('SELECT * FROM attendances WHERE id = ?').get(existing.id);
 

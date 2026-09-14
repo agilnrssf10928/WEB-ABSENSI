@@ -73,7 +73,7 @@ async function call(method, path, opts) {
 
   // 4. Clock-in dengan foto base64
     const photo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-  const clockIn = await call('POST', '/api/attendance/clock-in', { headers: { 'content-type': 'application/json', authorization: 'Bearer ' + login.json.token }, body: { photo, lat: -6.3673896, lng: 107.1066741, notes: 'Hadir' } });
+  const clockIn = await call('POST', '/api/attendance/clock-in', { headers: { 'content-type': 'application/json', authorization: 'Bearer ' + login.json.token }, body: { photo, lat: -6.3614144, lng: 107.0540305, notes: 'Hadir' } });
   if (clockIn.statusCode !== 200 && !(clockIn.statusCode === 400 && clockIn.json.error.includes('sudah'))) throw new Error('Clock-in gagal: ' + clockIn.body);
   console.log('OK  POST /api/attendance/clock-in ->', clockIn.statusCode);
 

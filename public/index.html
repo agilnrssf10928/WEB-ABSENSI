@@ -201,6 +201,10 @@
           <i class="fa-solid fa-file-signature"></i>
           <span>Izin, Sakit & Dispensasi</span>
         </button>
+        <button id="tab-emp-qr" class="tab-btn-emp text-slate-500 hover:text-slate-800 pb-2 font-bold text-sm flex items-center space-x-2">
+          <i class="fa-solid fa-qrcode"></i>
+          <span>QR Absensi Saya</span>
+        </button>
       </div>
 
       <!-- TAB 1: CLOCK IN / OUT PANEL -->
@@ -351,6 +355,64 @@
               <li>Siswa & Guru wajib menyalakan izin kamera & GPS.</li>
               <li>Pastikan foto selfie memperlihatkan wajah rapi berseragam.</li>
             </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: QR ATTENDANCE PANEL -->
+      <div id="panel-emp-qr" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- Scanner QR -->
+        <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
+          <h3 class="font-bold text-slate-900 flex items-center space-x-2">
+            <i class="fa-solid fa-camera-retro text-emerald-600"></i>
+            <span>Scan QR Absensi</span>
+          </h3>
+          <p class="text-xs text-slate-500">Arahkan kamera ke QR gerbang sekolah untuk absen diri sendiri, atau ke QR siswa/guru lain (ID Card) untuk absen oleh petugas.</p>
+          <div class="relative rounded-xl overflow-hidden bg-slate-900 aspect-video">
+            <video id="qr-video" autoplay playsinline class="w-full h-full object-cover"></video>
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div class="w-48 h-48 border-2 border-emerald-400 rounded-xl opacity-80"></div>
+            </div>
+            <div id="qr-scanner-status" class="absolute bottom-2 left-2 right-2 text-center text-[11px] font-semibold text-emerald-300 bg-black/60 rounded-lg py-1">Kamera belum aktif</div>
+          </div>
+          <button id="btn-toggle-qr-scan" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm shadow-md transition">
+            <i class="fa-solid fa-play mr-1"></i> Mulai Scan QR
+          </button>
+          <div id="qr-last-result" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-700"></div>
+        </div>
+
+        <!-- Kartu QR Pribadi + QR Gerbang -->
+        <div class="space-y-6">
+          <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
+            <h3 class="font-bold text-slate-900 flex items-center space-x-2">
+              <i class="fa-solid fa-id-card text-indigo-600"></i>
+              <span>QR Saya (ID Card Digital)</span>
+            </h3>
+            <p class="text-xs text-slate-500">Tunjukkan QR ini ke guru piket/petugas untuk discan — absen masuk & pulang langsung tercatat.</p>
+            <div class="flex justify-center bg-slate-50 rounded-xl border border-slate-200 p-4">
+              <div id="my-qr-code" class="bg-white p-2 rounded-xl"></div>
+            </div>
+            <div class="text-center space-y-0.5">
+              <div class="font-bold text-slate-900" id="my-qr-name">-</div>
+              <div class="text-xs text-slate-500" id="my-qr-detail">-</div>
+              <div class="font-mono text-[11px] text-slate-400" id="my-qr-nip">-</div>
+            </div>
+            <button onclick="window.print()" class="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+              <i class="fa-solid fa-print mr-1"></i> Cetak Kartu QR Saya
+            </button>
+          </div>
+
+          <div class="bg-white p-6 rounded-2xl card-shadow border border-slate-200 space-y-4">
+            <h3 class="font-bold text-slate-900 flex items-center space-x-2">
+              <i class="fa-solid fa-school-flag text-blue-600"></i>
+              <span>QR Gerbang Sekolah (Hari Ini)</span>
+            </h3>
+            <p class="text-xs text-slate-500">QR ini berganti setiap hari & dipasang di gerbang. Scan untuk absen diri sendiri.</p>
+            <div class="flex justify-center bg-slate-50 rounded-xl border border-slate-200 p-4">
+              <div id="school-qr-code" class="bg-white p-2 rounded-xl"></div>
+            </div>
+            <div class="text-center text-xs text-slate-500" id="school-qr-date">-</div>
           </div>
         </div>
       </div>
@@ -1144,6 +1206,8 @@
   </div>
 
   <!-- Client Application Logic -->
+  <script src="/js/vendor/qrcode.min.js"></script>
+  <script src="/js/vendor/jsQR.js"></script>
   <script src="/js/app.js"></script>
 </body>
 </html>

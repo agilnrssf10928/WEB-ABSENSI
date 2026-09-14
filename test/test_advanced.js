@@ -129,8 +129,8 @@ async function runAdvancedTests() {
       work_end_time: '15:00',
       late_tolerance_minutes: 15,
       office_radius_meters: 200,
-      office_lat: -6.3673896,
-      office_lng: 107.1066741,
+      office_lat: -6.3614144,
+      office_lng: 107.0540305,
       enable_radius_restriction: 1
     }
   );

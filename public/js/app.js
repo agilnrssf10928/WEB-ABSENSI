@@ -239,6 +239,19 @@ function placeClockPanelInStudentView() {
   studentView.insertBefore(clockPanel, historyPanel);
 }
 
+// ========================================================
+// QR ATTENDANCE (Scan QR Gerbang / QR Kartu + QR Pribadi)
+// ========================================================
+
+const qrState = {
+  scanning: false,
+  stream: null,
+  rafId: null,
+  canvas: document.createElement('canvas'),
+  lastResult: '',
+  lastResultAt: 0
+};
+
 function switchEmployeeTab(tabName) {
   document.querySelectorAll('.tab-btn-emp').forEach(b => {
     b.classList.remove('active', 'text-blue-600', 'border-b-2', 'border-blue-600');
@@ -256,6 +269,15 @@ function switchEmployeeTab(tabName) {
   document.getElementById('panel-emp-clock').classList.toggle('hidden', tabName !== 'clock');
   document.getElementById('panel-emp-history').classList.toggle('hidden', tabName !== 'history');
   document.getElementById('panel-emp-leave').classList.toggle('hidden', tabName !== 'leave');
+  document.getElementById('panel-emp-qr').classList.toggle('hidden', tabName !== 'qr');
+
+  if (tabName === 'qr') {
+    stopCamera();
+    renderMyQrCode();
+    renderSchoolQrCode();
+  } else {
+    stopQrScanner();
+  }
 
   if (tabName === 'clock') {
     startCamera();
@@ -273,6 +295,7 @@ function switchEmployeeTab(tabName) {
 document.getElementById('tab-emp-clock').addEventListener('click', () => switchEmployeeTab('clock'));
 document.getElementById('tab-emp-history').addEventListener('click', () => switchEmployeeTab('history'));
 document.getElementById('tab-emp-leave').addEventListener('click', () => switchEmployeeTab('leave'));
+document.getElementById('tab-emp-qr').addEventListener('click', () => switchEmployeeTab('qr'));
 
 async function initEmployeePortal() {
   await loadTodayAttendance();
@@ -624,6 +647,170 @@ document.getElementById('btn-clock-out').addEventListener('click', async () => {
     btn.disabled = false;
     btn.innerHTML = `<i class="fa-solid fa-right-from-bracket text-lg"></i> <span>ABSEN PULANG SEKOLAH SEKARANG</span>`;
   }
+});
+
+// ========================================================
+// QR ATTENDANCE ENGINE (Render QR, Scanner Kamera, Submit Scan)
+// ========================================================
+
+function renderMyQrCode() {
+  const user = state.currentUser;
+  if (!user) return;
+  const container = document.getElementById('my-qr-code');
+  if (!container || typeof QRCode === 'undefined') return;
+  container.innerHTML = '';
+  const payload = `USER_ID:${user.nip}`;
+  new QRCode(container, {
+    text: payload,
+    width: 180,
+    height: 180,
+    colorDark: '#0f172a',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+  document.getElementById('my-qr-name').textContent = user.name;
+  document.getElementById('my-qr-detail').textContent = `${user.position || ''} — ${user.department || ''}`;
+  document.getElementById('my-qr-nip').textContent = `ID: ${user.nip}`;
+}
+
+async function renderSchoolQrCode() {
+  try {
+    const res = await fetch('/api/attendance/school-qr');
+    const data = await res.json();
+    if (!data.success) return;
+    const container = document.getElementById('school-qr-code');
+    if (!container || typeof QRCode === 'undefined') return;
+    container.innerHTML = '';
+    new QRCode(container, {
+      text: data.qr_token,
+      width: 180,
+      height: 180,
+      colorDark: '#1d4ed8',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    document.getElementById('school-qr-date').textContent = `Berlaku untuk tanggal ${data.date} — ${data.school_name}`;
+  } catch (e) {
+    console.error('Gagal memuat QR gerbang:', e);
+  }
+}
+
+function setQrStatus(text) {
+  const el = document.getElementById('qr-scanner-status');
+  if (el) el.textContent = text;
+}
+
+async function startQrScanner() {
+  if (qrState.scanning) return;
+  const video = document.getElementById('qr-video');
+  if (!video || typeof jsQR === 'undefined') return;
+
+  try {
+    qrState.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+  } catch (e) {
+    try {
+      qrState.stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    } catch (e2) {
+      setQrStatus('Kamera tidak tersedia / izin ditolak');
+      return;
+    }
+  }
+
+  video.srcObject = qrState.stream;
+  qrState.scanning = true;
+  qrState.lastResult = '';
+  setQrStatus('Mencari QR Code... arahkan ke QR gerbang atau ID card');
+  document.getElementById('btn-toggle-qr-scan').innerHTML = '<i class="fa-solid fa-stop mr-1"></i> Hentikan Scan';
+
+  const tick = () => {
+    if (!qrState.scanning) return;
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      const canvas = qrState.canvas;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+      if (code && code.data) {
+        handleQrResult(code.data);
+      }
+    }
+    qrState.rafId = requestAnimationFrame(tick);
+  };
+  qrState.rafId = requestAnimationFrame(tick);
+}
+
+function stopQrScanner() {
+  qrState.scanning = false;
+  if (qrState.rafId) {
+    cancelAnimationFrame(qrState.rafId);
+    qrState.rafId = null;
+  }
+  if (qrState.stream) {
+    qrState.stream.getTracks().forEach(t => t.stop());
+    qrState.stream = null;
+  }
+  const video = document.getElementById('qr-video');
+  if (video) video.srcObject = null;
+  const btn = document.getElementById('btn-toggle-qr-scan');
+  if (btn) btn.innerHTML = '<i class="fa-solid fa-play mr-1"></i> Mulai Scan QR';
+  setQrStatus('Kamera belum aktif');
+}
+
+async function handleQrResult(rawData) {
+  // Debounce: QR yang sama dalam 4 detik diabaikan
+  const now = Date.now();
+  if (rawData === qrState.lastResult && now - qrState.lastResultAt < 4000) return;
+  qrState.lastResult = rawData;
+  qrState.lastResultAt = now;
+
+  try {
+    const res = await fetch('/api/attendance/scan-qr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        qr_data: rawData,
+        lat: state.userCoords ? state.userCoords.lat : null,
+        lng: state.userCoords ? state.userCoords.lng : null
+      })
+    });
+    const data = await res.json();
+
+    const resultBox = document.getElementById('qr-last-result');
+    if (resultBox) {
+      resultBox.classList.remove('hidden');
+      if (data.success) {
+        resultBox.className = 'bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-800';
+        resultBox.innerHTML = `<i class="fa-solid fa-circle-check mr-1"></i> ${data.message}`;
+      } else {
+        resultBox.className = 'bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800';
+        resultBox.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> ${data.error}`;
+      }
+    }
+
+    if (data.success) {
+      setQrStatus('Berhasil! ' + data.message);
+      await loadTodayAttendance();
+      if (state.currentUser && state.currentUser.role === 'admin') loadAdminDashboard();
+    } else {
+      setQrStatus(data.error || 'Scan gagal');
+    }
+  } catch (err) {
+    setQrStatus('Gagal menghubungi server');
+  }
+}
+
+document.getElementById('btn-toggle-qr-scan').addEventListener('click', () => {
+  if (qrState.scanning) {
+    stopQrScanner();
+  } else {
+    startQrScanner();
+  }
+});
+
+window.addEventListener('beforeunload', () => {
+  stopQrScanner();
 });
 
 // ========================================================
@@ -1457,8 +1644,8 @@ window.viewAttendanceDetail = function(att) {
   modal.classList.remove('hidden');
 
   setTimeout(() => {
-    const lat = att.lat_in || (state.officeSettings ? state.officeSettings.office_lat : -6.3673896);
-    const lng = att.lng_in || (state.officeSettings ? state.officeSettings.office_lng : 107.1066741);
+    const lat = att.lat_in || (state.officeSettings ? state.officeSettings.office_lat : -6.3614144);
+    const lng = att.lng_in || (state.officeSettings ? state.officeSettings.office_lng : 107.0540305);
 
     if (state.maps.detail) {
       state.maps.detail.remove();
