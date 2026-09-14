@@ -71,10 +71,8 @@ async function call(method, path, opts) {
   if (login.statusCode !== 200 || !login.json.success) throw new Error('Login gagal: ' + login.body);
   console.log('OK  POST /api/auth/login -> token diterima');
 
-  // 4. Absen masuk via scan QR gerbang (satu-satunya jalur absen)
-  const qr = await call('GET', '/api/attendance/school-qr');
-  if (!qr.json.qr_token) throw new Error('QR gerbang gagal: ' + qr.body);
-  const scan = await call('POST', '/api/attendance/scan-qr', { headers: { 'content-type': 'application/json', authorization: 'Bearer ' + login.json.token }, body: { qr_data: qr.json.qr_token, lat: -6.3614144, lng: 107.0540305, notes: 'Scan gerbang' } });
+  // 4. Absen masuk via scan kartu QR sendiri (satu-satunya jalur absen)
+  const scan = await call('POST', '/api/attendance/scan-qr', { headers: { 'content-type': 'application/json', authorization: 'Bearer ' + login.json.token }, body: { qr_data: 'USER_ID:agil', lat: -6.3614144, lng: 107.0540305, notes: 'Scan kartu sendiri' } });
   if (scan.statusCode !== 200 && !(scan.statusCode === 400 && scan.json.error.includes('sudah'))) throw new Error('Scan QR gagal: ' + scan.body);
   console.log('OK  POST /api/attendance/scan-qr ->', scan.statusCode, scan.json.action || '');
 

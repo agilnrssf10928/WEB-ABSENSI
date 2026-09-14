@@ -117,6 +117,8 @@ async function checkAuth() {
 function showLoginView() {
   stopQrScanner();
   state.currentUser = null;
+  // Kembalikan panel yang dipindahkan admin ke tampilan siswa agar login berikutnya normal
+  placeClockPanelInStudentView();
   document.getElementById('main-header').classList.add('hidden');
   document.getElementById('view-login').classList.remove('hidden');
   document.getElementById('view-employee').classList.add('hidden');
@@ -229,12 +231,10 @@ function placeClockPanelInStudentView() {
   const historyPanel = document.getElementById('panel-emp-history');
   studentView.insertBefore(clockPanel, historyPanel);
 
-  // Kembalikan tab & panel QR ke tampilan siswa/guru (urutan: clock, history, leave, qr)
-  const qrTab = document.getElementById('tab-emp-qr');
+  // Kembalikan panel QR ke tampilan siswa/guru (posisi: setelah panel izin)
   const qrPanel = document.getElementById('panel-emp-qr');
-  if (qrTab && qrPanel) {
-    qrTab.parentNode.appendChild(qrTab);
-    const leavePanel = document.getElementById('panel-emp-leave');
+  const leavePanel = document.getElementById('panel-emp-leave');
+  if (qrPanel && leavePanel) {
     leavePanel.parentNode.insertBefore(qrPanel, leavePanel.nextSibling);
   }
 }
@@ -264,19 +264,21 @@ function switchEmployeeTab(tabName) {
     activeBtn.classList.remove('text-slate-500');
   }
 
+  // Admin memakai switchAdminTab — abaikan panggilan dari tampilan admin
+  if (state.currentUser && state.currentUser.role === 'admin') return;
+
   placeClockPanelInStudentView();
 
   document.getElementById('panel-emp-clock').classList.toggle('hidden', tabName !== 'clock');
   document.getElementById('panel-emp-history').classList.toggle('hidden', tabName !== 'history');
   document.getElementById('panel-emp-leave').classList.toggle('hidden', tabName !== 'leave');
   document.getElementById('panel-emp-qr').classList.toggle('hidden', tabName !== 'qr');
+  document.getElementById('panel-emp-scan').classList.toggle('hidden', tabName !== 'scan');
+
+  stopQrScanner();
 
   if (tabName === 'qr') {
-    stopQrScanner();
     renderMyQrCode();
-    renderSchoolQrCode();
-  } else {
-    stopQrScanner();
   }
 
   if (tabName === 'clock') {
@@ -290,6 +292,7 @@ function switchEmployeeTab(tabName) {
 }
 
 document.getElementById('tab-emp-clock').addEventListener('click', () => switchEmployeeTab('clock'));
+document.getElementById('tab-emp-scan').addEventListener('click', () => switchEmployeeTab('scan'));
 document.getElementById('tab-emp-history').addEventListener('click', () => switchEmployeeTab('history'));
 document.getElementById('tab-emp-leave').addEventListener('click', () => switchEmployeeTab('leave'));
 document.getElementById('tab-emp-qr').addEventListener('click', () => switchEmployeeTab('qr'));
@@ -476,28 +479,6 @@ function renderMyQrCode() {
   document.getElementById('my-qr-nip').textContent = `ID: ${user.nip}`;
 }
 
-async function renderSchoolQrCode() {
-  try {
-    const res = await fetch('/api/attendance/school-qr');
-    const data = await res.json();
-    if (!data.success) return;
-    const container = document.getElementById('school-qr-code');
-    if (!container || typeof QRCode === 'undefined') return;
-    container.innerHTML = '';
-    new QRCode(container, {
-      text: data.qr_token,
-      width: 180,
-      height: 180,
-      colorDark: '#1d4ed8',
-      colorLight: '#ffffff',
-      correctLevel: QRCode.CorrectLevel.M
-    });
-    document.getElementById('school-qr-date').textContent = `Berlaku untuk tanggal ${data.date} — ${data.school_name}`;
-  } catch (e) {
-    console.error('Gagal memuat QR gerbang:', e);
-  }
-}
-
 function setQrStatus(text) {
   const el = document.getElementById('qr-scanner-status');
   if (el) el.textContent = text;
@@ -557,7 +538,7 @@ function stopQrScanner() {
   const video = document.getElementById('qr-video');
   if (video) video.srcObject = null;
   const btn = document.getElementById('btn-toggle-qr-scan');
-  if (btn) btn.innerHTML = '<i class="fa-solid fa-play mr-1"></i> Mulai Scan QR';
+  if (btn) btn.innerHTML = '<i class="fa-solid fa-play mr-1"></i> Mulai Scan';
   setQrStatus('Kamera belum aktif');
 }
 
@@ -748,18 +729,18 @@ async function loadEmployeeLeaves() {
 
 function placeClockPanelInAdminView() {
   const clockPanel = document.getElementById('panel-emp-clock');
+  const qrPanel = document.getElementById('panel-emp-qr');
+  const scanPanel = document.getElementById('panel-emp-scan');
   const container = document.getElementById('admin-myclock-container');
   container.appendChild(clockPanel);
+  if (qrPanel) container.appendChild(qrPanel);
+  if (scanPanel) container.appendChild(scanPanel);
 
-  // Admin juga bisa pakai fitur QR: pindahkan tab & panel QR ke area Absen Saya
-  const qrTab = document.getElementById('tab-emp-qr');
-  const qrPanel = document.getElementById('panel-emp-qr');
-  if (qrTab && qrPanel) {
-    qrTab.parentNode.appendChild(qrTab);
-    container.appendChild(qrPanel);
-    renderMyQrCode();
-    renderSchoolQrCode();
-  }
+  // Default: tampilkan panel status, sembunyikan kartu QR & scanner
+  clockPanel.classList.remove('hidden');
+  if (qrPanel) qrPanel.classList.add('hidden');
+  if (scanPanel) scanPanel.classList.add('hidden');
+  renderMyQrCode();
 }
 
 function switchAdminTab(tabName) {
@@ -792,6 +773,8 @@ function switchAdminTab(tabName) {
     stopQrScanner();
   }
 
+
+
   if (tabName === 'dash') loadAdminDashboard();
   if (tabName === 'today') loadAdminTodayAttendance();
   if (tabName === 'report') loadAdminReport();
@@ -802,6 +785,23 @@ function switchAdminTab(tabName) {
 
 document.getElementById('tab-adm-dash').addEventListener('click', () => switchAdminTab('dash'));
 document.getElementById('tab-adm-myclock').addEventListener('click', () => switchAdminTab('myclock'));
+
+// Tombol "Buka Scanner QR": siswa -> tab Scan; admin -> tampilkan scanner di area Absen Saya
+document.getElementById('btn-go-qr-tab').addEventListener('click', () => {
+  const isAdmin = state.currentUser && state.currentUser.role === 'admin';
+  if (isAdmin) {
+    const scanPanel = document.getElementById('panel-emp-scan');
+    const clockPanel = document.getElementById('panel-emp-clock');
+    const qrPanel = document.getElementById('panel-emp-qr');
+    if (!scanPanel) return;
+    clockPanel.classList.add('hidden');
+    if (qrPanel) qrPanel.classList.add('hidden');
+    scanPanel.classList.remove('hidden');
+    scanPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else {
+    switchEmployeeTab('scan');
+  }
+});
 document.getElementById('tab-adm-today').addEventListener('click', () => switchAdminTab('today'));
 document.getElementById('tab-adm-report').addEventListener('click', () => switchAdminTab('report'));
 document.getElementById('tab-adm-leaves').addEventListener('click', () => switchAdminTab('leaves'));

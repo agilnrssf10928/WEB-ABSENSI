@@ -22,20 +22,6 @@ function handleAttendanceRoutes(req, res, url, user) {
     });
   }
 
-  // GET /api/attendance/school-qr (Mendapatkan token QR gerbang hari ini)
-  if (req.method === 'GET' && url.pathname === '/api/attendance/school-qr') {
-    const now = getNowFormatted();
-    const settings = db.prepare('SELECT * FROM settings WHERE id = 1').get();
-    const qr_token = `SEKOLAH_QR:${now.date}:PRESENSIKU`;
-
-    return res.json({
-      success: true,
-      date: now.date,
-      school_name: settings.office_name,
-      qr_token
-    });
-  }
-
   // POST /api/attendance/scan-qr (Fitur Scan QR Siswa & Guru)
   if (req.method === 'POST' && url.pathname === '/api/attendance/scan-qr') {
     if (!user) return res.json({ error: 'Unauthorized' }, 401);
@@ -115,61 +101,7 @@ function handleAttendanceRoutes(req, res, url, user) {
       }
     }
 
-    // Skenario 2: Siswa / Guru memindai QR Code Gerbang Sekolah
-    if (qr_data.startsWith('SEKOLAH_QR:')) {
-      const existing = db.prepare('SELECT * FROM attendances WHERE user_id = ? AND date = ?').get(user.id, now.date);
-
-      if (!existing) {
-        // Absen Masuk
-        const status = evaluateStatus(now.timeMinutes, settings.work_start_time, settings.late_tolerance_minutes);
-
-        // Catat lokasi scan jika tersedia (untuk monitoring jarak oleh admin)
-        let distance = null;
-        if (lat != null && lng != null && settings.office_lat != null && settings.office_lng != null) {
-          distance = calculateDistance(Number(lat), Number(lng), settings.office_lat, settings.office_lng);
-        }
-
-        const stmt = db.prepare(`
-          INSERT INTO attendances (user_id, date, clock_in, status, lat_in, lng_in, distance_in, notes)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `);
-        const result = stmt.run(user.id, now.date, now.time, status, lat ?? null, lng ?? null, distance, 'Presensi via Scan QR Gerbang Sekolah');
-        const saved = db.prepare('SELECT * FROM attendances WHERE id = ?').get(result.lastInsertRowid);
-
-        return res.json({
-          success: true,
-          action: 'clock-in',
-          status,
-          message: `Absen masuk berhasil via QR Sekolah pada jam ${now.time} (${status === 'late' ? 'Terlambat' : 'Tepat Waktu'})`,
-          attendance: saved
-        });
-      } else if (!existing.clock_out) {
-        // Absen Pulang
-        let distanceOut = null;
-        if (lat != null && lng != null && settings.office_lat != null && settings.office_lng != null) {
-          distanceOut = calculateDistance(Number(lat), Number(lng), settings.office_lat, settings.office_lng);
-        }
-
-        db.prepare(`
-          UPDATE attendances
-          SET clock_out = ?, lat_out = ?, lng_out = ?, distance_out = ?, notes = notes || ' | Pulang via QR Gerbang'
-          WHERE id = ?
-        `).run(now.time, lat ?? null, lng ?? null, distanceOut, existing.id);
-
-        const updated = db.prepare('SELECT * FROM attendances WHERE id = ?').get(existing.id);
-
-        return res.json({
-          success: true,
-          action: 'clock-out',
-          message: `Absen pulang sekolah berhasil via QR pada jam ${now.time}.`,
-          attendance: updated
-        });
-      } else {
-        return res.json({ error: 'Anda sudah menyelesaikan presensi masuk dan pulang hari ini.' }, 400);
-      }
-    }
-
-    return res.json({ error: 'Format QR Code tidak dikenali oleh sistem sekolah.' }, 400);
+    return res.json({ error: 'Format QR Code tidak dikenali. Gunakan kartu QR resmi sekolah (USER_ID).' }, 400);
   }
 
   // GET /api/attendance/history (Riwayat pribadi)

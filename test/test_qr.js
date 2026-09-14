@@ -44,30 +44,29 @@ async function run() {
   const siswaToken = siswaLogin.bodyJson.token;
   console.log('OK  Login admin agil & siswa uji baru');
 
-  // 1. Ambil QR gerbang hari ini
-  const gateQr = await request({ hostname: 'localhost', port: PORT, path: '/api/attendance/school-qr', method: 'GET' });
-  assert.strictEqual(gateQr.statusCode, 200);
-  assert(gateQr.bodyJson.qr_token.startsWith('SEKOLAH_QR:'));
-  console.log('OK  GET /api/attendance/school-qr ->', gateQr.bodyJson.qr_token);
+  // 1. Endpoint QR gerbang sudah DIHAPUS
+  const gateQrGone = await request({ hostname: 'localhost', port: PORT, path: '/api/attendance/school-qr', method: 'GET' });
+  assert.strictEqual(gateQrGone.statusCode, 404);
+  console.log('OK  GET /api/attendance/school-qr -> 404 (QR gerbang dihapus)');
 
-  // 2. Siswa scan QR gerbang -> absen masuk
-  const scanIn = await request({ hostname: 'localhost', port: PORT, path: '/api/attendance/scan-qr', method: 'POST', headers: { Authorization: `Bearer ${siswaToken}` } }, { qr_data: gateQr.bodyJson.qr_token, lat: -6.3614144, lng: 107.0540305 });
-  assert.strictEqual(scanIn.statusCode, 200, 'Scan QR gerbang gagal: ' + scanIn.bodyStr);
+  // 2. Siswa scan kartu sendiri via kamera -> absen masuk
+  const scanIn = await request({ hostname: 'localhost', port: PORT, path: '/api/attendance/scan-qr', method: 'POST', headers: { Authorization: `Bearer ${siswaToken}` } }, { qr_data: 'USER_ID:0088888881', lat: -6.3614144, lng: 107.0540305 });
+  assert.strictEqual(scanIn.statusCode, 200, 'Scan kartu sendiri gagal: ' + scanIn.bodyStr);
   assert.strictEqual(scanIn.bodyJson.action, 'clock-in');
-  console.log('OK  Siswa scan QR gerbang -> clock-in', scanIn.bodyJson.status);
+  console.log('OK  Siswa scan kartu sendiri -> clock-in', scanIn.bodyJson.status);
 
-  // 3. Scan ulang QR gerbang -> clock-out (pulang)
-  const scanOut = await request({ hostname: 'localhost', port: PORT, path: '/api/attendance/scan-qr', method: 'POST', headers: { Authorization: `Bearer ${siswaToken}` } }, { qr_data: gateQr.bodyJson.qr_token });
+  // 3. Scan ulang kartu sendiri -> clock-out (pulang)
+  const scanOut = await request({ hostname: 'localhost', port: PORT, path: '/api/attendance/scan-qr', method: 'POST', headers: { Authorization: `Bearer ${siswaToken}` } }, { qr_data: 'USER_ID:0088888881' });
   assert.strictEqual(scanOut.statusCode, 200, JSON.stringify(scanOut.bodyJson));
   assert.strictEqual(scanOut.bodyJson.action, 'clock-out');
-  console.log('OK  Scan ulang QR gerbang -> clock-out');
+  console.log('OK  Scan ulang kartu sendiri -> clock-out');
 
   // 4. Scan ketiga -> sudah lengkap, ditolak rapi
-  const scanThird = await request({ hostname: 'localhost', port: PORT, path: '/api/attendance/scan-qr', method: 'POST', headers: { Authorization: `Bearer ${siswaToken}` } }, { qr_data: gateQr.bodyJson.qr_token });
+  const scanThird = await request({ hostname: 'localhost', port: PORT, path: '/api/attendance/scan-qr', method: 'POST', headers: { Authorization: `Bearer ${siswaToken}` } }, { qr_data: 'USER_ID:0088888881' });
   assert.strictEqual(scanThird.statusCode, 400);
   console.log('OK  Scan ketiga -> 400', scanThird.bodyJson.error);
 
-  // 5. Admin scan kartu siswa (USER_ID) -> tercatat, tapi siswa sudah lengkap -> 400
+  // 5. Admin scan kartu siswa -> juga ditolak karena sudah lengkap
   const scanCard = await request({ hostname: 'localhost', port: PORT, path: '/api/attendance/scan-qr', method: 'POST', headers: { Authorization: `Bearer ${adminToken}` } }, { qr_data: 'USER_ID:0088888881' });
   assert.strictEqual(scanCard.statusCode, 400);
   console.log('OK  Admin scan kartu siswa (sudah lengkap) -> 400');
@@ -78,7 +77,7 @@ async function run() {
   console.log('OK  Kartu tak dikenal -> 404');
 
   // 7. Tanpa login -> 401
-  const noAuth = await request({ hostname: 'localhost', port: PORT, path: '/api/attendance/scan-qr', method: 'POST' }, { qr_data: 'SEKOLAH_QR:x' });
+  const noAuth = await request({ hostname: 'localhost', port: PORT, path: '/api/attendance/scan-qr', method: 'POST' }, { qr_data: 'USER_ID:x' });
   assert.strictEqual(noAuth.statusCode, 401);
   console.log('OK  Scan tanpa login -> 401');
 

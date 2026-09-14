@@ -108,13 +108,12 @@ async function runTests() {
   const studentToken = studentLogin.bodyJson.token;
   console.log('✓ Test 7 Passed: New student can login');
 
-  // 8. QR gerbang tersedia
-  const gateQr = await request({ hostname: 'localhost', port: TEST_PORT, path: '/api/attendance/school-qr', method: 'GET' });
-  assert.strictEqual(gateQr.statusCode, 200);
-  assert(gateQr.bodyJson.qr_token.startsWith('SEKOLAH_QR:'));
-  console.log('✓ Test 8 Passed: School gate QR available');
+  // 8. QR gerbang sudah dihapus — endpoint tidak ada
+  const gateQrGone = await request({ hostname: 'localhost', port: TEST_PORT, path: '/api/attendance/school-qr', method: 'GET' });
+  assert.strictEqual(gateQrGone.statusCode, 404);
+  console.log('✓ Test 8 Passed: Gate QR endpoint removed (404)');
 
-  // 9. Absen masuk via scan QR gerbang
+  // 9. Absen masuk via scan kartu QR sendiri
   const scanIn = await request(
     {
       hostname: 'localhost',
@@ -123,12 +122,12 @@ async function runTests() {
       method: 'POST',
       headers: { Authorization: `Bearer ${studentToken}` }
     },
-    { qr_data: gateQr.bodyJson.qr_token, lat: -6.3614144, lng: 107.0540305, notes: 'Scan gerbang' }
+    { qr_data: 'USER_ID:0090000001', lat: -6.3614144, lng: 107.0540305, notes: 'Scan kartu sendiri' }
   );
   assert.strictEqual(scanIn.statusCode, 200, JSON.stringify(scanIn.bodyJson));
   assert.strictEqual(scanIn.bodyJson.action, 'clock-in');
   assert(['present', 'late'].includes(scanIn.bodyJson.status));
-  console.log('✓ Test 9 Passed: Student clock-in via gate QR');
+  console.log('✓ Test 9 Passed: Student clock-in via own card QR');
 
   // 10. Stats admin
   const statsRes = await request({
