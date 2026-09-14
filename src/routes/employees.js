@@ -40,7 +40,7 @@ function handleEmployeeRoutes(req, res, url, user) {
       return res.json({ error: 'Akses ditolak. Khusus Admin Sekolah.' }, 403);
     }
 
-    const { nip, name, email, password, department, position, phone, role = 'student', child_nip } = req.body || {};
+    const { nip, name, email, password, department, position, phone, role = 'student', child_nip, entry_year } = req.body || {};
 
     if (!nip || !name || !email || !password) {
       return res.json({ error: 'NISN / NIP, Nama, Email, dan Password wajib diisi.' }, 400);
@@ -53,8 +53,8 @@ function handleEmployeeRoutes(req, res, url, user) {
     if (existingEmail) return res.json({ error: 'Email sudah terdaftar.' }, 400);
 
     const insert = db.prepare(`
-      INSERT INTO users (nip, name, email, password_hash, role, department, position, phone)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (nip, name, email, password_hash, role, department, position, phone, entry_year)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = insert.run(
@@ -65,7 +65,8 @@ function handleEmployeeRoutes(req, res, url, user) {
       role,
       department || 'Umum',
       position || (role === 'student' ? 'Siswa' : role === 'parent' ? 'Orang Tua / Wali' : 'Guru'),
-      phone || ''
+      phone || '',
+      entry_year != null && entry_year !== '' ? Number(entry_year) : null
     );
 
     // Kalau akun orang tua, hubungkan dengan anak (siswa) via NISN
@@ -89,7 +90,7 @@ function handleEmployeeRoutes(req, res, url, user) {
     }
 
     const targetId = Number(putMatch[1]);
-    const { name, email, department, position, phone, role, password, is_active, child_nip } = req.body || {};
+    const { name, email, department, position, phone, role, password, is_active, child_nip, entry_year } = req.body || {};
 
     const target = db.prepare('SELECT * FROM users WHERE id = ?').get(targetId);
     if (!target) return res.json({ error: 'Data tidak ditemukan.' }, 404);
@@ -106,7 +107,7 @@ function handleEmployeeRoutes(req, res, url, user) {
 
     db.prepare(`
       UPDATE users
-      SET name = ?, email = ?, department = ?, position = ?, phone = ?, role = ?, password_hash = ?, is_active = ?
+      SET name = ?, email = ?, department = ?, position = ?, phone = ?, role = ?, password_hash = ?, is_active = ?, entry_year = ?
       WHERE id = ?
     `).run(
       name || target.name,
@@ -117,6 +118,7 @@ function handleEmployeeRoutes(req, res, url, user) {
       role || target.role,
       passwordHash,
       is_active != null ? Number(is_active) : target.is_active,
+      entry_year != null && entry_year !== '' ? Number(entry_year) : (entry_year === '' ? null : target.entry_year),
       targetId
     );
 
@@ -128,7 +130,7 @@ function handleEmployeeRoutes(req, res, url, user) {
       }
     }
 
-    const updated = db.prepare('SELECT id, nip, name, email, role, department, position, phone, is_active FROM users WHERE id = ?').get(targetId);
+    const updated = db.prepare('SELECT id, nip, name, email, role, department, position, phone, is_active, entry_year, avatar FROM users WHERE id = ?').get(targetId);
     return res.json({ success: true, message: 'Data berhasil diperbarui.', employee: updated });
   }
 

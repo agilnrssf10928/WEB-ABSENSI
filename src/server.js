@@ -11,6 +11,7 @@ const handleLeaveRoutes = require('./routes/leaves');
 const handleSettingsRoutes = require('./routes/settings');
 const { handleNotificationRoutes } = require('./routes/notifications');
 const { handleParentRoutes } = require('./routes/parent');
+const { handleProfileRoutes } = require('./routes/profile');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, '../public');
@@ -128,6 +129,7 @@ async function handleRequest(req, res) {
     if (handleSettingsRoutes(req, res, url, currentUser) || res.writableEnded) return;
     if (handleNotificationRoutes(req, res, url, currentUser) || res.writableEnded) return;
     if (handleParentRoutes(req, res, url, currentUser) || res.writableEnded) return;
+    if (handleProfileRoutes(req, res, url, currentUser) || res.writableEnded) return;
 
     if (!res.writableEnded) {
       return res.json({ error: `API route ${req.method} ${url.pathname} tidak ditemukan` }, 404);
@@ -191,7 +193,8 @@ async function handleRequest(req, res) {
   res.statusCode = 200;
   res.setHeader('Content-Type', MIME_TYPES[ext] || 'application/octet-stream');
   res.setHeader('Content-Length', stats.size);
-  res.setHeader('Cache-Control', ext === '.html' ? 'no-cache' : 'public, max-age=3600');
+  // HTML, JS, & CSS selalu divalidasi ulang — update kode langsung terpakai tanpa cache lama
+  res.setHeader('Cache-Control', ext === '.html' || ext === '.js' || ext === '.css' ? 'no-cache' : 'public, max-age=3600');
 
   await sendFile(filePath);
   } catch (err) {

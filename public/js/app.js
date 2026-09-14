@@ -10,6 +10,8 @@ const state = {
   empUserMarker: null,
   empAccuracyCircle: null,
   adminMapUpdate: null,
+  profileAvatarData: '',
+  profileAvatarDirty: false,
   maps: {
     emp: null,
     admin: null,
@@ -138,6 +140,7 @@ async function renderApp() {
                     user.role === 'parent' ? 'ORANG TUA / WALI' : 'SISWA';
   document.getElementById('nav-user-role').textContent = roleLabel;
   document.getElementById('nav-user-dept').textContent = `• ${user.department}`;
+  updateHeaderAvatar(user);
   document.getElementById('view-login').classList.add('hidden');
 
   await loadSettings();
@@ -838,6 +841,63 @@ function stopQrScanner() {
   setQrStatus('Kamera belum aktif');
 }
 
+// Bunyi beep sederhana via Web Audio API (tanpa file audio)
+function playScanSound(ok) {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const playTone = (freq, start, dur, type = 'sine') => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime + start);
+      gain.gain.exponentialRampToValueAtTime(0.22, ctx.currentTime + start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + dur);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + dur + 0.05);
+    };
+    if (ok) {
+      playTone(880, 0, 0.12);           // "bip" naik — sukses
+      playTone(1318.5, 0.12, 0.18);
+    } else {
+      playTone(196, 0, 0.35, 'square'); // nada rendah panjang — gagal
+    }
+    setTimeout(() => ctx.close().catch(() => {}), 900);
+  } catch (e) { /* audio tidak tersedia — abaikan */ }
+}
+
+// Banner besar hasil absen (berhasil / gagal) di tengah atas layar
+let attendanceBannerTimer = null;
+function showAttendanceBanner(ok, title, subtitle) {
+  let banner = document.getElementById('attendance-result-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'attendance-result-banner';
+    banner.className = 'no-print';
+    document.body.appendChild(banner);
+  }
+
+  banner.className = `no-print attendance-banner ${ok ? 'attendance-banner-success' : 'attendance-banner-fail'}`;
+  banner.innerHTML = `
+    <div class="attendance-banner-icon"><i class="fa-solid ${ok ? 'fa-circle-check' : 'fa-circle-xmark'}"></i></div>
+    <div class="flex-1">
+      <div class="attendance-banner-title">${title}</div>
+      ${subtitle ? `<div class="attendance-banner-sub">${subtitle}</div>` : ''}
+    </div>
+  `;
+
+  // Restart animasi slide-down
+  banner.classList.remove('attendance-banner-show');
+  void banner.offsetWidth;
+  banner.classList.add('attendance-banner-show');
+
+  if (attendanceBannerTimer) clearTimeout(attendanceBannerTimer);
+  attendanceBannerTimer = setTimeout(() => banner.classList.remove('attendance-banner-show'), 5000);
+}
+
 async function handleQrResult(rawData) {
   // Debounce: QR yang sama dalam 4 detik diabaikan
   const now = Date.now();
@@ -860,6 +920,14 @@ async function handleQrResult(rawData) {
     const data = await res.json();
 
     const resultBox = document.getElementById('qr-last-result');
+    if (data.success) {
+      playScanSound(true);
+      showAttendanceBanner(true, '✅ ABSEN BERHASIL!', data.message);
+    } else {
+      playScanSound(false);
+      showAttendanceBanner(false, '❌ ABSEN GAGAL', data.error || 'Coba scan ulang.');
+    }
+
     if (resultBox) {
       resultBox.classList.remove('hidden');
       if (data.success) {
@@ -879,6 +947,8 @@ async function handleQrResult(rawData) {
       setQrStatus(data.error || 'Scan gagal');
     }
   } catch (err) {
+    playScanSound(false);
+    showAttendanceBanner(false, '❌ ABSEN GAGAL', 'Tidak dapat menghubungi server. Periksa koneksi internet.');
     setQrStatus('Gagal menghubungi server');
   }
 }
@@ -1566,6 +1636,7 @@ window.openEditEmployeeModal = function(emp) {
   document.getElementById('emp-form-dept').value = emp.department;
   document.getElementById('emp-form-position').value = emp.position;
   document.getElementById('emp-form-phone').value = emp.phone || '';
+  document.getElementById('emp-form-entry-year').value = emp.entry_year || '';
   document.getElementById('emp-form-role').value = emp.role;
   document.getElementById('emp-form-child-nip').value = '';
   toggleChildNipField();
@@ -1585,6 +1656,7 @@ document.getElementById('form-save-employee').addEventListener('submit', async e
     department: document.getElementById('emp-form-dept').value,
     position: document.getElementById('emp-form-position').value,
     phone: document.getElementById('emp-form-phone').value,
+    entry_year: document.getElementById('emp-form-entry-year').value,
     role: document.getElementById('emp-form-role').value
   };
 
@@ -1761,6 +1833,160 @@ document.getElementById('form-settings').addEventListener('submit', async e => {
       document.getElementById('header-office-name').textContent = data.settings.office_name;
     } else {
       showToast(data.error || 'Gagal menyimpan pengaturan', 'error');
+    }
+  } catch (err) {
+    showToast('Terjadi kesalahan server', 'error');
+  }
+});
+
+// ========================================================
+// PROFIL SAYA (FOTO CUSTOM, NISN, TELEPON, TAHUN MASUK)
+// ========================================================
+
+function updateHeaderAvatar(user) {
+  const initialEl = document.getElementById('nav-avatar-initial');
+  const imgEl = document.getElementById('nav-avatar-img');
+  if (!initialEl || !imgEl) return;
+  if (user && user.avatar) {
+    imgEl.src = user.avatar;
+    imgEl.classList.remove('hidden');
+    initialEl.classList.add('hidden');
+  } else {
+    imgEl.classList.add('hidden');
+    initialEl.classList.remove('hidden');
+    initialEl.textContent = user && user.name ? user.name.charAt(0).toUpperCase() : '-';
+  }
+}
+
+async function openProfileModal() {
+  const modal = document.getElementById('modal-profile');
+  modal.classList.remove('hidden');
+
+  try {
+    const res = await fetch('/api/profile');
+    const data = await res.json();
+    if (!data.success) {
+      showToast(data.error || 'Gagal memuat profil', 'error');
+      return;
+    }
+    const p = data.profile;
+
+    document.getElementById('profile-nip').textContent = p.nip || '-';
+    document.getElementById('profile-name').value = p.name || '';
+    document.getElementById('profile-phone').value = p.phone || '';
+    document.getElementById('profile-entry-year').value = p.entry_year || '';
+    document.getElementById('profile-email').textContent = p.email || '-';
+    document.getElementById('profile-dept').textContent = `${p.department || '-'} • ${p.position || '-'}`;
+    updateProfileAvatarPreview(p.avatar, p.name);
+    state.profileAvatarData = p.avatar || '';
+    state.profileAvatarDirty = false;
+    document.getElementById('btn-remove-avatar').classList.toggle('hidden', !p.avatar);
+  } catch (err) {
+    showToast('Gagal menghubungi server', 'error');
+  }
+}
+
+function closeProfileModal() {
+  document.getElementById('modal-profile').classList.add('hidden');
+}
+
+function updateProfileAvatarPreview(avatarData, name) {
+  const initialEl = document.getElementById('profile-avatar-initial');
+  const imgEl = document.getElementById('profile-avatar-img');
+  if (avatarData) {
+    imgEl.src = avatarData;
+    imgEl.classList.remove('hidden');
+    initialEl.classList.add('hidden');
+  } else {
+    imgEl.classList.add('hidden');
+    initialEl.classList.remove('hidden');
+    initialEl.textContent = name ? name.charAt(0).toUpperCase() : '-';
+  }
+}
+
+// Kompres gambar pilihan ke JPEG kecil (maks 256px) supaya ringan di database
+function compressImageToDataUrl(file, maxSize = 256) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.onerror = () => reject(new Error('Gambar tidak valid'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error('Gagal membaca file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+// Klik avatar di header -> buka profil
+document.getElementById('btn-open-profile').addEventListener('click', openProfileModal);
+document.getElementById('btn-close-profile').addEventListener('click', closeProfileModal);
+
+document.getElementById('profile-avatar-input').addEventListener('change', async e => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('Foto terlalu besar (maks 5MB). Pilih foto lain.', 'error');
+    e.target.value = '';
+    return;
+  }
+  try {
+    const dataUrl = await compressImageToDataUrl(file);
+    state.profileAvatarData = dataUrl;
+    state.profileAvatarDirty = true;
+    updateProfileAvatarPreview(dataUrl, document.getElementById('profile-name').value);
+    document.getElementById('btn-remove-avatar').classList.remove('hidden');
+    showToast('Foto siap. Klik "Simpan Profil" untuk menerapkan.', 'info');
+  } catch (err) {
+    showToast('Gagal memproses foto', 'error');
+  }
+  e.target.value = '';
+});
+
+document.getElementById('btn-remove-avatar').addEventListener('click', () => {
+  state.profileAvatarData = '';
+  state.profileAvatarDirty = true;
+  updateProfileAvatarPreview('', document.getElementById('profile-name').value);
+  document.getElementById('btn-remove-avatar').classList.add('hidden');
+});
+
+document.getElementById('form-profile').addEventListener('submit', async e => {
+  e.preventDefault();
+  const payload = {
+    name: document.getElementById('profile-name').value,
+    phone: document.getElementById('profile-phone').value,
+    entry_year: document.getElementById('profile-entry-year').value
+  };
+  if (state.profileAvatarDirty) payload.avatar = state.profileAvatarData;
+
+  try {
+    const res = await fetch('/api/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.message, 'success');
+      // Sinkronkan user aktif + tampilan header
+      const meRes = await fetch('/api/auth/me');
+      const meData = await meRes.json();
+      if (meData.success && meData.user) {
+        state.currentUser = meData.user;
+        updateHeaderAvatar(meData.user);
+        document.getElementById('nav-user-name').textContent = meData.user.name;
+      }
+      closeProfileModal();
+    } else {
+      showToast(data.error || 'Gagal menyimpan profil', 'error');
     }
   } catch (err) {
     showToast('Terjadi kesalahan server', 'error');

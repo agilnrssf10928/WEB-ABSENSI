@@ -122,6 +122,16 @@ function persist() {
 
 // Inisialisasi Database Sekolah
 function initDb() {
+  // Migrasi ringan untuk database lama: kolom entry_year (tahun masuk)
+  try {
+    const cols = sqlDb.exec("PRAGMA table_info(users)");
+    const colNames = (cols.length ? cols[0].values : []).map(v => String(v[1]));
+    if (colNames.length && !colNames.includes('entry_year')) {
+      sqlDb.exec('ALTER TABLE users ADD COLUMN entry_year INTEGER DEFAULT NULL');
+      console.log('DB: kolom entry_year ditambahkan ke tabel users.');
+    }
+  } catch (e) { /* database baru — kolom sudah ada dari skema */ }
+
   sqlDb.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -134,6 +144,7 @@ function initDb() {
       position TEXT DEFAULT '',
       phone TEXT DEFAULT '',
       avatar TEXT DEFAULT '',
+      entry_year INTEGER DEFAULT NULL,
       is_active INTEGER DEFAULT 1,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );

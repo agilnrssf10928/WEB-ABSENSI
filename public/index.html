@@ -80,6 +80,10 @@
             <span id="nav-user-dept">-</span>
           </div>
         </div>
+        <button id="btn-open-profile" class="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold text-sm flex items-center justify-center shadow-md shadow-blue-500/25 overflow-hidden hover:scale-105 transition" title="Profil Saya">
+          <span id="nav-avatar-initial">-</span>
+          <img id="nav-avatar-img" class="hidden w-full h-full object-cover" alt="Foto profil" />
+        </button>
         <button id="btn-theme-toggle" class="p-2 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition" title="Ganti Tema Terang/Gelap">
           <i class="fa-solid fa-moon text-lg"></i>
         </button>
@@ -914,6 +918,81 @@
   <!-- MODALS & DIALOGS -->
   <!-- ======================================================== -->
 
+  <!-- MODAL: PROFIL SAYA -->
+  <div id="modal-profile" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between p-5 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl">
+        <h3 class="font-bold text-slate-900 flex items-center space-x-2">
+          <i class="fa-solid fa-user text-blue-600"></i>
+          <span>Profil Saya</span>
+        </h3>
+        <button id="btn-close-profile" class="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="form-profile" class="p-5 space-y-4">
+        <!-- Foto profil custom -->
+        <div class="flex flex-col items-center space-y-2">
+          <div class="relative">
+            <div id="profile-avatar-preview" class="w-24 h-24 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-3xl font-bold shadow-lg shadow-blue-500/30 overflow-hidden">
+              <span id="profile-avatar-initial">-</span>
+              <img id="profile-avatar-img" class="hidden w-full h-full object-cover" alt="Foto profil" />
+            </div>
+            <label for="profile-avatar-input" class="absolute -bottom-1 -right-1 w-9 h-9 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center cursor-pointer shadow-md transition" title="Ganti Foto">
+              <i class="fa-solid fa-camera text-sm"></i>
+            </label>
+            <input type="file" id="profile-avatar-input" accept="image/*" class="hidden" />
+          </div>
+          <button type="button" id="btn-remove-avatar" class="text-[11px] text-red-500 hover:underline font-semibold hidden">
+            <i class="fa-solid fa-trash mr-1"></i>Hapus Foto
+          </button>
+        </div>
+
+        <!-- NISN / NIP (read-only) -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">NISN / NIP</label>
+          <div class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm font-mono font-semibold text-slate-600" id="profile-nip">-</div>
+        </div>
+
+        <!-- Nama -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nama Lengkap</label>
+          <input type="text" id="profile-name" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <!-- No Telepon -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">No. Telepon</label>
+            <input type="tel" id="profile-phone" placeholder="08xxxxxxxxxx" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <!-- Tahun Masuk -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Tahun Masuk</label>
+            <input type="number" id="profile-entry-year" min="1990" max="2100" placeholder="2024" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500" />
+          </div>
+        </div>
+
+        <!-- Info read-only -->
+        <div class="grid grid-cols-2 gap-3 text-xs">
+          <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+            <div class="text-slate-400 font-semibold uppercase text-[10px] mb-0.5">Email</div>
+            <div class="font-bold text-slate-700 break-all" id="profile-email">-</div>
+          </div>
+          <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+            <div class="text-slate-400 font-semibold uppercase text-[10px] mb-0.5">Kelas / Unit</div>
+            <div class="font-bold text-slate-700" id="profile-dept">-</div>
+          </div>
+        </div>
+
+        <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow-md transition">
+          <i class="fa-solid fa-floppy-disk mr-1"></i> Simpan Profil
+        </button>
+      </form>
+    </div>
+  </div>
+
   <!-- MODAL: QR MURID TERDAFTAR (khusus Guru & Admin) -->
   <div id="modal-student-qr" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
     <div class="bg-white max-w-2xl w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col" style="max-height: 90vh;">
@@ -1044,6 +1123,10 @@
           <div>
             <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nomor Telepon/WA</label>
             <input type="text" id="emp-form-phone" placeholder="08123456789" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Tahun Masuk</label>
+            <input type="number" id="emp-form-entry-year" min="1990" max="2100" placeholder="2024" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
             <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Peran Akun</label>

@@ -521,3 +521,51 @@ html.dark ::-webkit-scrollbar-thumb:hover { background: #3b4f7d; }
   html.dark .card-shadow { background: white !important; border-color: #e2e8f0 !important; box-shadow: none !important; }
   html.dark #main-header, html.dark .tabstrip-card { background: white !important; }
 }
+
+/* ========================================================
+   BANNER HASIL ABSEN (BERHASIL / GAGAL)
+   ======================================================== */
+.attendance-banner {
+  position: fixed;
+  top: -140px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 320px;
+  max-width: min(92vw, 560px);
+  padding: 1rem 1.5rem;
+  border-radius: 1.25rem;
+  color: #fff;
+  box-shadow: 0 20px 45px -12px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transition: top 0.35s cubic-bezier(0.22, 1.2, 0.36, 1), opacity 0.3s ease;
+  pointer-events: none;
+}
+.attendance-banner-show {
+  top: 84px;
+  opacity: 1;
+}
+.attendance-banner-success {
+  background: linear-gradient(135deg, #059669, #10b981);
+}
+.attendance-banner-fail {
+  background: linear-gradient(135deg, #dc2626, #ef4444);
+}
+.attendance-banner-icon {
+  font-size: 2.2rem;
+  display: flex;
+  align-items: center;
+}
+.attendance-banner-title {
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+.attendance-banner-sub {
+  font-size: 0.8rem;
+  opacity: 0.95;
+  margin-top: 2px;
+}

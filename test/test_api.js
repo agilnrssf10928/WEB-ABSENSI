@@ -127,7 +127,7 @@ async function runTests() {
       method: 'POST',
       headers: { Authorization: `Bearer ${studentToken}` }
     },
-    { qr_data: `USER_ID:${STUDENT_NIP}`, lat: -6.3614144, lng: 107.0540305 }
+    { qr_data: `USER_ID:${STUDENT_NIP}`, lat: -6.36263, lng: 107.06503 }
   );
   assert.strictEqual(scanStudent.statusCode, 403, JSON.stringify(scanStudent.bodyJson));
   console.log('✓ Test 9 Passed: Student account cannot scan QR (403)');
@@ -141,7 +141,7 @@ async function runTests() {
       method: 'POST',
       headers: { Authorization: `Bearer ${adminToken}` }
     },
-    { qr_data: `USER_ID:${STUDENT_NIP}`, lat: -6.3614144, lng: 107.0540305, mode: 'in' }
+    { qr_data: `USER_ID:${STUDENT_NIP}`, lat: -6.36263, lng: 107.06503, mode: 'in' }
   );
   assert.strictEqual(scanIn.statusCode, 200, JSON.stringify(scanIn.bodyJson));
   assert.strictEqual(scanIn.bodyJson.action, 'clock-in');
