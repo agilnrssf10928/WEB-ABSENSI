@@ -1457,8 +1457,8 @@ window.viewAttendanceDetail = function(att) {
   modal.classList.remove('hidden');
 
   setTimeout(() => {
-    const lat = att.lat_in || (state.officeSettings ? state.officeSettings.office_lat : -6.2088);
-    const lng = att.lng_in || (state.officeSettings ? state.officeSettings.office_lng : 106.8456);
+    const lat = att.lat_in || (state.officeSettings ? state.officeSettings.office_lat : -6.3673896);
+    const lng = att.lng_in || (state.officeSettings ? state.officeSettings.office_lng : 107.1066741);
 
     if (state.maps.detail) {
       state.maps.detail.remove();

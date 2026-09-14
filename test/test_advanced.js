@@ -124,18 +124,18 @@ async function runAdvancedTests() {
       headers: { Authorization: `Bearer ${adminToken}` }
     },
     {
-      office_name: 'SMA Negeri 1 Digital Unggulan',
+      office_name: 'SMK Pariwisata Digital Unggulan',
       work_start_time: '07:00',
       work_end_time: '15:00',
       late_tolerance_minutes: 15,
       office_radius_meters: 200,
-      office_lat: -6.2088,
-      office_lng: 106.8456,
+      office_lat: -6.3673896,
+      office_lng: 107.1066741,
       enable_radius_restriction: 1
     }
   );
   assert.strictEqual(updateSettings.statusCode, 200);
-  assert.strictEqual(updateSettings.bodyJson.settings.office_name, 'SMA Negeri 1 Digital Unggulan');
+  assert.strictEqual(updateSettings.bodyJson.settings.office_name, 'SMK Pariwisata Digital Unggulan');
   console.log('✓ Advanced 5: School settings update verified');
 
   // 6. Admin menghapus data siswa uji coba

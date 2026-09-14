@@ -160,9 +160,9 @@ function initDb() {
 
     CREATE TABLE IF NOT EXISTS settings (
       id INTEGER PRIMARY KEY,
-      office_name TEXT DEFAULT 'SMA Negeri 1 PresensiKu Digital',
-      office_lat REAL DEFAULT -6.2088,
-      office_lng REAL DEFAULT 106.8456,
+      office_name TEXT DEFAULT 'SMK Pariwisata Cikarang Selatan',
+      office_lat REAL DEFAULT -6.3673896,
+      office_lng REAL DEFAULT 107.1066741,
       office_radius_meters INTEGER DEFAULT 150,
       enable_radius_restriction INTEGER DEFAULT 1,
       work_start_time TEXT DEFAULT '07:00',
@@ -211,7 +211,7 @@ function initDb() {
   if (settingsCount.count === 0) {
     db.prepare(`
       INSERT INTO settings (id, office_name, office_lat, office_lng, office_radius_meters, enable_radius_restriction, work_start_time, work_end_time, late_tolerance_minutes)
-      VALUES (1, 'SMA Negeri 1 PresensiKu Digital', -6.208800, 106.845600, 150, 1, '07:00', '15:00', 15)
+      VALUES (1, 'SMK Pariwisata Cikarang Selatan', -6.3673896, 107.1066741, 150, 1, '07:00', '15:00', 15)
     `).run();
   }
 

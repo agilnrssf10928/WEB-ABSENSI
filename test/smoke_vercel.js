@@ -63,7 +63,7 @@ async function call(method, path, opts) {
 
   // 2. Settings API
   const settings = await call('GET', '/api/settings');
-  if (settings.statusCode !== 200 || !settings.json.settings.office_name.includes('SMA')) throw new Error('Settings gagal');
+  if (settings.statusCode !== 200 || !settings.json.settings.office_name.includes('SMK')) throw new Error('Settings gagal');
   console.log('OK  GET /api/settings ->', settings.json.settings.office_name);
 
   // 3. Login siswa
@@ -72,8 +72,8 @@ async function call(method, path, opts) {
   console.log('OK  POST /api/auth/login -> token diterima');
 
   // 4. Clock-in dengan foto base64
-  const photo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-  const clockIn = await call('POST', '/api/attendance/clock-in', { headers: { 'content-type': 'application/json', authorization: 'Bearer ' + login.json.token }, body: { photo, lat: -6.2088, lng: 106.8456, notes: 'Hadir' } });
+    const photo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  const clockIn = await call('POST', '/api/attendance/clock-in', { headers: { 'content-type': 'application/json', authorization: 'Bearer ' + login.json.token }, body: { photo, lat: -6.3673896, lng: 107.1066741, notes: 'Hadir' } });
   if (clockIn.statusCode !== 200 && !(clockIn.statusCode === 400 && clockIn.json.error.includes('sudah'))) throw new Error('Clock-in gagal: ' + clockIn.body);
   console.log('OK  POST /api/attendance/clock-in ->', clockIn.statusCode);
 

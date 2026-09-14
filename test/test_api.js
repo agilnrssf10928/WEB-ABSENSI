@@ -78,7 +78,7 @@ async function runTests() {
   // 5. Settings API
   const settingsRes = await request({ hostname: 'localhost', port: TEST_PORT, path: '/api/settings', method: 'GET' });
   assert.strictEqual(settingsRes.statusCode, 200);
-  assert(settingsRes.bodyJson.settings.office_name.includes('SMA'));
+  assert(settingsRes.bodyJson.settings.office_name.includes('SMK'));
   console.log('✓ Test 5 Passed: GET /api/settings returns school name');
 
   // 6. Student Clock-In API
@@ -93,8 +93,8 @@ async function runTests() {
     },
     {
       photo: samplePhoto,
-      lat: -6.2088,
-      lng: 106.8456,
+      lat: -6.3673896,
+      lng: 107.1066741,
       notes: 'Hadir apel pagi'
     }
   );
@@ -112,8 +112,8 @@ async function runTests() {
     },
     {
       photo: samplePhoto,
-      lat: -6.2088,
-      lng: 106.8456,
+      lat: -6.3673896,
+      lng: 107.1066741,
       notes: 'Pulang sekolah'
     }
   );
@@ -140,8 +140,8 @@ async function runTests() {
     },
     {
       photo: samplePhoto,
-      lat: -6.2088,
-      lng: 106.8456,
+      lat: -6.3673896,
+      lng: 107.1066741,
       notes: 'Hadir memimpin upacara sekolah'
     }
   );
