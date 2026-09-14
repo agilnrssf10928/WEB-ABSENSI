@@ -116,6 +116,7 @@ async function checkAuth() {
 
 function showLoginView() {
   stopCamera();
+  stopQrScanner();
   state.currentUser = null;
   document.getElementById('main-header').classList.add('hidden');
   document.getElementById('view-login').classList.remove('hidden');
@@ -237,6 +238,15 @@ function placeClockPanelInStudentView() {
   const studentView = document.getElementById('view-employee');
   const historyPanel = document.getElementById('panel-emp-history');
   studentView.insertBefore(clockPanel, historyPanel);
+
+  // Kembalikan tab & panel QR ke tampilan siswa/guru (urutan: clock, history, leave, qr)
+  const qrTab = document.getElementById('tab-emp-qr');
+  const qrPanel = document.getElementById('panel-emp-qr');
+  if (qrTab && qrPanel) {
+    qrTab.parentNode.appendChild(qrTab);
+    const leavePanel = document.getElementById('panel-emp-leave');
+    leavePanel.parentNode.insertBefore(qrPanel, leavePanel.nextSibling);
+  }
 }
 
 // ========================================================
@@ -942,6 +952,16 @@ function placeClockPanelInAdminView() {
   const clockPanel = document.getElementById('panel-emp-clock');
   const container = document.getElementById('admin-myclock-container');
   container.appendChild(clockPanel);
+
+  // Admin juga bisa pakai fitur QR: pindahkan tab & panel QR ke area Absen Saya
+  const qrTab = document.getElementById('tab-emp-qr');
+  const qrPanel = document.getElementById('panel-emp-qr');
+  if (qrTab && qrPanel) {
+    qrTab.parentNode.appendChild(qrTab);
+    container.appendChild(qrPanel);
+    renderMyQrCode();
+    renderSchoolQrCode();
+  }
 }
 
 function switchAdminTab(tabName) {
@@ -973,6 +993,7 @@ function switchAdminTab(tabName) {
     if (state.maps.emp) setTimeout(() => state.maps.emp.invalidateSize(), 300);
   } else {
     stopCamera();
+    stopQrScanner();
   }
 
   if (tabName === 'dash') loadAdminDashboard();
