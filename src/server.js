@@ -4,6 +4,7 @@ const path = require('node:path');
 const { URL } = require('node:url');
 
 const { verifyToken } = require('./utils');
+const { flushDb } = require('./db');
 const handleAuthRoutes = require('./routes/auth');
 const handleAttendanceRoutes = require('./routes/attendance');
 const handleEmployeeRoutes = require('./routes/employees');
@@ -134,16 +135,33 @@ async function handleRequest(req, res) {
         mode: process.env.VERCEL === '1' ? 'vercel' : 'local'
       });
     }
-    if (handleAuthRoutes(req, res, url, currentUser) || res.writableEnded) return;
-    if (handleAttendanceRoutes(req, res, url, currentUser) || res.writableEnded) return;
-    if (handleEmployeeRoutes(req, res, url, currentUser) || res.writableEnded) return;
-    if (handleLeaveRoutes(req, res, url, currentUser) || res.writableEnded) return;
-    if (handleSettingsRoutes(req, res, url, currentUser) || res.writableEnded) return;
-    if (handleNotificationRoutes(req, res, url, currentUser) || res.writableEnded) return;
-    if (handleParentRoutes(req, res, url, currentUser) || res.writableEnded) return;
-    if (handleProfileRoutes(req, res, url, currentUser) || res.writableEnded) return;
+    const apiHandlers = [
+      handleAuthRoutes,
+      handleAttendanceRoutes,
+      handleEmployeeRoutes,
+      handleLeaveRoutes,
+      handleSettingsRoutes,
+      handleNotificationRoutes,
+      handleParentRoutes,
+      handleProfileRoutes
+    ];
 
-    if (!res.writableEnded) {
+    let handled = false;
+    for (const handler of apiHandlers) {
+      if (handler(req, res, url, currentUser)) { handled = true; break; }
+      if (res.writableEnded) { handled = true; break; }
+    }
+
+    // Request yang mengubah data (profil, pengaturan sekolah, absen, akun) harus
+    // benar-benar tersimpan sebelum handler selesai. Tanpa ini, di Vercel push
+    // database ke GitHub bisa tidak sempat jalan (function dibekukan) sehingga
+    // pengaturan yang baru disimpan seolah-olah kembali ke default.
+    const isMutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
+    if (handled && isMutation && url.pathname !== '/api/auth/logout') {
+      await flushDb();
+    }
+
+    if (!handled && !res.writableEnded) {
       return res.json({ error: `API route ${req.method} ${url.pathname} tidak ditemukan` }, 404);
     }
     return;

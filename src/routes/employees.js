@@ -46,12 +46,45 @@ function handleEmployeeRoutes(req, res, url, user) {
       return res.json({ error: 'Nama, Email, dan Password wajib diisi.' }, 400);
     }
 
-    // Akun orang tua boleh tanpa NIP — dibuat otomatis (ortu-xxxxxx) supaya mudah daftar
-    let finalNip = nip && String(nip).trim();
-    if (!finalNip && role === 'parent') {
-      do { finalNip = 'ortu' + Math.floor(100000 + Math.random() * 900000); }
-      while (db.prepare('SELECT id FROM users WHERE nip = ?').get(finalNip));
+    const isParent = role === 'parent';
+    let finalNip = nip && String(nip).trim() ? String(nip).trim() : '';
+    let childNip = child_nip && String(child_nip).trim() ? String(child_nip).trim() : '';
+    let childUser = null;
+
+    // --- Akun ORANG TUA: dihubungkan ke anak HANYA lewat NISN anak ---
+    if (isParent) {
+      // Kalau admin menaruh NISN anak di kolom NISN/NIP (kolom yang biasa diisi),
+      // pindahkan otomatis jadi data tautan anak — bukan dibenturkan sebagai
+      // "NISN / NIP sudah terdaftar".
+      if (!childNip && finalNip) {
+        const asChild = db.prepare("SELECT id, name FROM users WHERE nip = ? AND role = 'student'").get(finalNip);
+        if (asChild) {
+          childUser = asChild;
+          childNip = finalNip;
+          finalNip = '';
+        }
+      }
+
+      // Cari anak berdasarkan NISN yang diberikan
+      if (!childUser && childNip) {
+        childUser = db.prepare("SELECT id, name FROM users WHERE nip = ? AND role = 'student'").get(childNip);
+        if (!childUser) {
+          return res.json({
+            error: `NISN anak "${childNip}" tidak ditemukan. Pastikan akun siswa sudah terdaftar dulu.`
+          }, 400);
+        }
+      }
+
+      // NISN/NIP milik orang tua bersifat opsional dan dibuat otomatis.
+      // Kalau yang diisi ternyata sudah dipakai (mis. NISN anak sendiri),
+      // buat username otomatis saja supaya akun orang tua tetap bisa dibuat.
+      const nipTaken = finalNip && db.prepare('SELECT id FROM users WHERE nip = ?').get(finalNip);
+      if (!finalNip || nipTaken) {
+        do { finalNip = 'ortu' + Math.floor(100000 + Math.random() * 900000); }
+        while (db.prepare('SELECT id FROM users WHERE nip = ?').get(finalNip));
+      }
     }
+
     if (!finalNip) {
       return res.json({ error: 'NISN / NIP wajib diisi untuk akun Siswa & Guru.' }, 400);
     }
@@ -74,22 +107,24 @@ function handleEmployeeRoutes(req, res, url, user) {
       hashPassword(password),
       role,
       department || 'Umum',
-      position || (role === 'student' ? 'Siswa' : role === 'parent' ? 'Orang Tua / Wali' : 'Guru'),
+      position || (isParent ? 'Orang Tua / Wali' : role === 'student' ? 'Siswa' : 'Guru'),
       phone || '',
       entry_year != null && entry_year !== '' ? Number(entry_year) : null
     );
 
-    // Kalau akun orang tua, hubungkan dengan anak (siswa) via NISN
+    // Kalau akun orang tua, hubungkan dengan anak (siswa) via NISN anak
     const parentId = result.lastInsertRowid;
-    if (role === 'parent' && child_nip) {
-      const child = db.prepare("SELECT id FROM users WHERE nip = ? AND role = 'student'").get(child_nip);
-      if (child) {
-        db.prepare('INSERT OR IGNORE INTO parent_children (parent_user_id, student_user_id) VALUES (?, ?)').run(parentId, child.id);
-      }
+    if (isParent && childUser) {
+      db.prepare('INSERT OR IGNORE INTO parent_children (parent_user_id, student_user_id) VALUES (?, ?)').run(parentId, childUser.id);
     }
 
     const created = db.prepare('SELECT id, nip, name, email, role, department, position, phone, is_active, entry_year FROM users WHERE id = ?').get(parentId);
-    return res.json({ success: true, message: 'Data warga sekolah berhasil ditambahkan.', employee: created });
+    const message = isParent
+      ? (childUser
+          ? `Akun orang tua berhasil dibuat & terhubung ke siswa ${childUser.name}.`
+          : 'Akun orang tua berhasil dibuat. Isi NISN anak agar bisa memantau kehadiran.')
+      : 'Data warga sekolah berhasil ditambahkan.';
+    return res.json({ success: true, message, employee: created });
   }
 
   // PUT /api/employees/:id
@@ -108,6 +143,20 @@ function handleEmployeeRoutes(req, res, url, user) {
     if (email && email !== target.email) {
       const emailExists = db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(email, targetId);
       if (emailExists) return res.json({ error: 'Email sudah digunakan akun lain.' }, 400);
+    }
+
+    // Tautan anak untuk akun orang tua (dicari dari NISN anak, divalidasi SEBELUM
+    // update supaya tidak ada perubahan yang setengah jalan)
+    const effectiveRole = role || target.role;
+    let linkedChild = null;
+    if (effectiveRole === 'parent') {
+      const linkNip = child_nip && String(child_nip).trim() ? String(child_nip).trim() : '';
+      if (linkNip) {
+        linkedChild = db.prepare("SELECT id, name FROM users WHERE nip = ? AND role = 'student'").get(linkNip);
+        if (!linkedChild) {
+          return res.json({ error: `NISN anak "${linkNip}" tidak ditemukan.` }, 400);
+        }
+      }
     }
 
     let passwordHash = target.password_hash;
@@ -133,15 +182,15 @@ function handleEmployeeRoutes(req, res, url, user) {
     );
 
     // Update tautan orang tua-anak bila dikirim
-    if ((role || target.role) === 'parent' && child_nip) {
-      const child = db.prepare("SELECT id FROM users WHERE nip = ? AND role = 'student'").get(child_nip);
-      if (child) {
-        db.prepare('INSERT OR IGNORE INTO parent_children (parent_user_id, student_user_id) VALUES (?, ?)').run(targetId, child.id);
-      }
+    if (linkedChild) {
+      db.prepare('INSERT OR IGNORE INTO parent_children (parent_user_id, student_user_id) VALUES (?, ?)').run(targetId, linkedChild.id);
     }
 
     const updated = db.prepare('SELECT id, nip, name, email, role, department, position, phone, is_active, entry_year, avatar FROM users WHERE id = ?').get(targetId);
-    return res.json({ success: true, message: 'Data berhasil diperbarui.', employee: updated });
+    const message = linkedChild
+      ? `Data berhasil diperbarui & terhubung ke siswa ${linkedChild.name}.`
+      : 'Data berhasil diperbarui.';
+    return res.json({ success: true, message, employee: updated });
   }
 
   // DELETE /api/employees/:id

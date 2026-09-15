@@ -24,7 +24,7 @@ function handleProfileRoutes(req, res, url, user) {
     const target = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
     if (!target) return res.json({ error: 'User tidak ditemukan' }, 404);
 
-    const { name, phone, entry_year, avatar, nip } = req.body || {};
+    const { name, phone, entry_year, avatar, nip, email } = req.body || {};
 
     // Validasi NISN/NIP baru: unik (kecuali milik sendiri)
     let newNip = target.nip;
@@ -40,6 +40,24 @@ function handleProfileRoutes(req, res, url, user) {
         }
         newNip = candidate;
       }
+    }
+
+    // Validasi email baru: format valid + belum dipakai akun lain (tidak peduli huruf besar/kecil)
+    let newEmail = target.email;
+    if (email !== undefined && email !== null) {
+      const candidate = String(email).trim();
+      if (!candidate || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate)) {
+        return res.json({ error: 'Format email tidak valid.' }, 400);
+      }
+      const sameAsCurrent = candidate.toLowerCase() === String(target.email || '').toLowerCase();
+      if (!sameAsCurrent) {
+        const clash = db.prepare('SELECT id FROM users WHERE LOWER(email) = LOWER(?) AND id != ?')
+          .get(candidate, user.id);
+        if (clash) {
+          return res.json({ error: 'Email sudah dipakai akun lain.' }, 400);
+        }
+      }
+      newEmail = candidate;
     }
 
     // Validasi avatar: harus data URL gambar bila dikirim
@@ -59,11 +77,12 @@ function handleProfileRoutes(req, res, url, user) {
 
     db.prepare(`
       UPDATE users
-      SET nip = ?, name = ?, phone = ?, entry_year = ?, avatar = ?
+      SET nip = ?, name = ?, email = ?, phone = ?, entry_year = ?, avatar = ?
       WHERE id = ?
     `).run(
       newNip,
       name && String(name).trim() ? String(name).trim() : target.name,
+      newEmail,
       phone != null ? String(phone).trim() : target.phone,
       entry_year != null && entry_year !== '' ? Number(entry_year) : (entry_year === '' ? null : target.entry_year),
       newAvatar,

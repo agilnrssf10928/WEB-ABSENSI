@@ -40,12 +40,17 @@ function handleAuthRoutes(req, res, url, user) {
       avatar: found.avatar
     };
 
+    // Sertakan pengaturan sekolah supaya cache lokal di klien langsung terisi
+    // data terbaru (dan tampilan tidak sempat memakai nilai default).
+    const settings = db.prepare('SELECT * FROM settings WHERE id = 1').get() || null;
+
     res.setHeader('Set-Cookie', `presensi_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`);
     return res.json({
       success: true,
       message: 'Login berhasil',
       token,
-      user: userData
+      user: userData,
+      settings
     });
   }
 
@@ -58,7 +63,8 @@ function handleAuthRoutes(req, res, url, user) {
     if (!found) {
       return res.json({ error: 'User tidak ditemukan' }, 404);
     }
-    return res.json({ success: true, user: found });
+    const settings = db.prepare('SELECT * FROM settings WHERE id = 1').get() || null;
+    return res.json({ success: true, user: found, settings });
   }
 
   // POST /api/auth/logout

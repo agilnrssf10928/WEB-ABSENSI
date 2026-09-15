@@ -189,10 +189,10 @@ h1, h2, h3, h4 {
   background: linear-gradient(90deg, #059669, #10b981, #059669);
   color: #ffffff;
   text-align: center;
-  padding: 1rem 1.25rem;
-  box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.5);
-  animation: banner-slide-down 0.5s ease;
-  transition: opacity 0.4s ease, transform 0.4s ease;
+  padding: 0.5rem 1rem;
+  box-shadow: 0 6px 16px -6px rgba(16, 185, 129, 0.5);
+  animation: banner-slide-down 0.35s ease;
+  transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
 @keyframes banner-slide-down {
@@ -214,17 +214,17 @@ h1, h2, h3, h4 {
 
 .toast {
   pointer-events: auto;
-  min-width: 280px;
-  max-width: 400px;
-  padding: 0.875rem 1.25rem;
+  min-width: 200px;
+  max-width: 320px;
+  padding: 0.5rem 0.85rem;
   border-radius: 0.5rem;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 500;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  animation: slideIn 0.3s ease-out forwards;
+  gap: 0.5rem;
+  box-shadow: 0 6px 12px -4px rgba(0, 0, 0, 0.15);
+  animation: slideIn 0.25s ease-out forwards;
 }
 
 @keyframes slideIn {

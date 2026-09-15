@@ -157,6 +157,30 @@ function persist() {
   schedulePush();
 }
 
+// Flush: paksa simpan SEKARANG (tanpa debounce) dan tunggu sampai selesai.
+// Dipakai setelah request yang mengubah data (profil, pengaturan, absen, dll).
+// Di Vercel, serverless function bisa dibekukan tepat setelah respons terkirim,
+// jadi push yang ditunda lewat setTimeout sering tidak pernah jalan — akibatnya
+// perubahan (foto profil, NISN, no telp, email) hilang dan kembali ke default.
+async function flushDb() {
+  if (!sqlDb) return;
+
+  // Batalkan debounce yang masih menunggu
+  if (pushTimer) {
+    clearTimeout(pushTimer);
+    pushTimer = null;
+  }
+
+  // Tunggu push yang sedang berjalan supaya tidak tumpang tindih (maks 5 detik)
+  const startedAt = Date.now();
+  while (isPushing && Date.now() - startedAt < 5000) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+
+  // persistNow() mengekspor kondisi database TERBARU saat ini juga
+  await persistNow();
+}
+
 // Inisialisasi Database Sekolah
 function initDb() {
   // Migrasi ringan untuk database lama: kolom entry_year (tahun masuk)
@@ -307,8 +331,11 @@ async function fetchRemoteDb() {
     }
   }
 
-  // Fallback: raw URL (hanya jalan kalau repo database public)
-  const res = await fetch(REMOTE_RAW_URL, { headers: { 'User-Agent': 'web-absensi', 'Cache-Control': 'no-cache' } });
+  // Fallback: raw URL (hanya jalan kalau repo database public).
+  // Tambahkan query unik supaya CDN GitHub tidak mengirim versi lama (cache),
+  // karena cache CDN yang basi membuat pengaturan terlihat "balik ke default".
+  const rawUrl = `${REMOTE_RAW_URL}${REMOTE_RAW_URL.includes('?') ? '&' : '?'}t=${Date.now()}`;
+  const res = await fetch(rawUrl, { headers: { 'User-Agent': 'web-absensi', 'Cache-Control': 'no-cache' } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const buf = Buffer.from(await res.arrayBuffer());
   if (buf.length < 16) throw new Error('File remote kosong/tidak valid');
@@ -343,26 +370,47 @@ function loadDb() {
     }).then(async (SQL) => {
       let loaded = false;
 
-      // 1) Coba unduh database terpusat dari GitHub
-      try {
-        const buf = await fetchRemoteDb();
-        sqlDb = new SQL.Database(buf);
-        // Simpan salinan lokal sebagai cache
-        if (!isVercel) { try { fs.writeFileSync(dbPath, buf); } catch (_) {} }
-        loaded = true;
-        console.log('DB: dimuat dari database terpusat GitHub (DATABASE-ABSENSI).');
-      } catch (e) {
-        console.error('DB: gagal ambil database remote (' + e.message + '), coba file lokal...');
+      // 1) Mode lokal (npm start): file lokal SELALU jadi sumber utama karena
+      //    setiap perubahan langsung ditulis ke file ini. Kalau database remote
+      //    yang dipakai lebih dulu, pengaturan yang baru saja disimpan (profil,
+      //    NISN, no telp, email) akan hilang setiap server di-restart.
+      if (!isVercel && fs.existsSync(dbPath)) {
+        try {
+          const localBuf = fs.readFileSync(dbPath);
+          if (localBuf.length >= 16 && localBuf.slice(0, 6).toString('utf8') === 'SQLite') {
+            sqlDb = new SQL.Database(localBuf);
+            loaded = true;
+            console.log('DB: dimuat dari file lokal database.sqlite (paling baru).');
+          } else {
+            console.error('DB: file lokal bukan database SQLite yang valid, coba remote...');
+          }
+        } catch (e) {
+          console.error('DB: gagal baca file lokal (' + e.message + '), coba remote...');
+        }
       }
 
-      // 2) Fallback: file lokal
+      // 2) Unduh database terpusat dari GitHub (wajib di Vercel, cadangan di lokal)
+      if (!loaded) {
+        try {
+          const buf = await fetchRemoteDb();
+          sqlDb = new SQL.Database(buf);
+          // Simpan salinan lokal sebagai cache
+          if (!isVercel) { try { fs.writeFileSync(dbPath, buf); } catch (_) {} }
+          loaded = true;
+          console.log('DB: dimuat dari database terpusat GitHub (DATABASE-ABSENSI).');
+        } catch (e) {
+          console.error('DB: gagal ambil database remote (' + e.message + '), coba file lokal...');
+        }
+      }
+
+      // 3) Fallback terakhir: file lokal
       if (!loaded && fs.existsSync(dbPath)) {
         sqlDb = new SQL.Database(fs.readFileSync(dbPath));
         loaded = true;
         console.log('DB: dimuat dari file lokal database.sqlite.');
       }
 
-      // 3) Fallback terakhir: database baru kosong
+      // 4) Fallback terakhir: database baru kosong
       if (!loaded || !sqlDb) {
         sqlDb = new SQL.Database();
         console.log('DB: membuat database baru.');
@@ -485,6 +533,7 @@ const db = {
 module.exports = {
   db,
   dbReady: loadDb(),
+  flushDb,
   hashPassword,
   verifyPassword
 };

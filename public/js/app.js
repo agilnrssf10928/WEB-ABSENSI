@@ -73,17 +73,22 @@ function showToast(message, type = 'info') {
                     'fa-circle-info text-blue-500';
 
   toast.innerHTML = `
-    <i class="fa-solid ${iconClass} text-lg"></i>
-    <div class="flex-1">${message}</div>
+    <i class="fa-solid ${iconClass} text-xs"></i>
+    <div class="flex-1 text-xs leading-snug">${message}</div>
   `;
 
   container.appendChild(toast);
+
+  // Notifikasi hanya sebentar: info/sukses ~1 detik, error sedikit lebih lama
+  // supaya masih sempat dibaca.
+  const visibleMs = type === 'error' ? 2500 : 1200;
+
   setTimeout(() => {
     toast.style.opacity = '0';
     toast.style.transform = 'translateX(100%)';
-    toast.style.transition = 'all 0.3s ease';
-    setTimeout(() => toast.remove(), 300);
-  }, 4000);
+    toast.style.transition = 'all 0.25s ease';
+    setTimeout(() => toast.remove(), 250);
+  }, visibleMs);
 }
 
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -156,19 +161,12 @@ async function checkAuth() {
       console.log('✅ checkAuth: Server session OK');
       renderApp();
     } else {
-      // ⚠️ Server session expired, fallback ke cache
-      console.log('⚠️ checkAuth: Server session invalid, trying localStorage cache');
-      const cached = loadSessionFromStorage();
-      
-      if (cached.user) {
-        console.log('✅ checkAuth: Using cached session from localStorage');
-        state.currentUser = cached.user;
-        state.officeSettings = cached.settings || state.officeSettings;
-        renderApp();
-      } else {
-        console.log('❌ checkAuth: No valid session found');
-        showLoginView();
-      }
+      // ⚠️ Server MENOLAK sesi (token tidak ada / kedaluwarsa). Cache lama tidak
+      // boleh dipakai: kalau dipakai, profil & pengaturan yang tampil adalah data
+      // lama (seolah-olah "kembali ke default"). Bersihkan lalu minta login lagi.
+      console.log('⚠️ checkAuth: Sesi ditolak server, cache lama dibersihkan');
+      clearSessionStorage();
+      showLoginView();
     }
   } catch (err) {
     // 🌐 Network error, fallback ke cache
@@ -240,6 +238,8 @@ async function loadSettings() {
     if (data.success && data.settings) {
       state.officeSettings = data.settings;
       document.getElementById('header-office-name').textContent = data.settings.office_name;
+      // Ikut simpan ke cache lokal agar pengaturan sekolah tidak balik ke default
+      saveSessionToStorage(state.currentUser, data.settings);
     }
   } catch (err) {
     console.error('Gagal memuat pengaturan:', err);
@@ -255,21 +255,21 @@ function showLoginSuccessBanner() {
   banner.id = 'login-success-banner';
   banner.className = 'login-success-banner';
   banner.innerHTML = `
-    <div class="flex items-center justify-center space-x-3">
-      <i class="fa-solid fa-circle-check text-3xl"></i>
+    <div class="flex items-center justify-center space-x-2">
+      <i class="fa-solid fa-circle-check text-sm"></i>
       <div class="text-center">
-        <div class="font-black text-base sm:text-lg tracking-wide">SELAMAT ANDA BERHASIL LOGIN KE WEB ABSENSI SEKOLAH</div>
+        <div class="font-bold text-[11px] sm:text-xs tracking-wide">Selamat Anda Berhasil Login ke Web Absensi Sekolah</div>
       </div>
     </div>
   `;
   document.body.prepend(banner);
 
-  // Hilangkan otomatis setelah 6 detik
+  // Hilangkan otomatis setelah 1,2 detik saja (jangan menutupi layar terlalu lama)
   setTimeout(() => {
     banner.style.opacity = '0';
     banner.style.transform = 'translateY(-16px)';
-    setTimeout(() => banner.remove(), 400);
-  }, 6000);
+    setTimeout(() => banner.remove(), 250);
+  }, 1200);
 }
 
 // Form Login Submit
@@ -1656,6 +1656,7 @@ async function loadAdminEmployees() {
 
       const roleBadge = emp.role === 'admin' ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-indigo-100 text-indigo-800">Kepala Sekolah / Admin</span>' :
                         emp.role === 'teacher' ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-purple-100 text-purple-800">Guru / Staf</span>' :
+                        emp.role === 'parent' ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-100 text-amber-800">Orang Tua / Wali</span>' :
                         '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800">Siswa</span>';
 
       return `
@@ -1698,15 +1699,31 @@ async function loadAdminEmployees() {
 
 function toggleChildNipField() {
   const role = document.getElementById('emp-form-role').value;
-  document.getElementById('emp-form-child-wrap').classList.toggle('hidden', role !== 'parent');
+  const isParent = role === 'parent';
+  const nipInput = document.getElementById('emp-form-nip');
+  const childInput = document.getElementById('emp-form-child-nip');
+  const nipWrap = document.getElementById('emp-form-nip-wrap');
+
+  document.getElementById('emp-form-child-wrap').classList.toggle('hidden', !isParent);
+
+  // Akun orang tua tidak butuh NISN/NIP sendiri — yang wajib justru NISN anak,
+  // karena dari NISN itulah akun orang tua terhubung ke anaknya.
+  if (nipWrap) nipWrap.classList.toggle('hidden', isParent);
+  nipInput.required = !isParent;
+  childInput.required = isParent;
+
+  if (isParent) nipInput.value = '';
+  else childInput.value = '';
 }
 document.getElementById('emp-form-role').addEventListener('change', toggleChildNipField);
 
 document.getElementById('btn-modal-add-emp').addEventListener('click', () => {
-  document.getElementById('modal-emp-title').innerHTML = `<i class="fa-solid fa-user-plus text-blue-600"></i> <span>Tambah Siswa / Guru Baru</span>`;
+  document.getElementById('modal-emp-title').innerHTML = `<i class="fa-solid fa-user-plus text-blue-600"></i> <span>Tambah Siswa / Guru / Orang Tua</span>`;
   document.getElementById('form-save-employee').reset();
   document.getElementById('emp-form-id').value = '';
   document.getElementById('emp-form-nip').disabled = false;
+  document.getElementById('emp-form-nip').value = '';
+  document.getElementById('emp-form-child-nip').value = '';
   toggleChildNipField();
   document.getElementById('modal-employee-form').classList.remove('hidden');
 });
@@ -1961,7 +1978,7 @@ async function openProfileModal() {
     document.getElementById('profile-name').value = p.name || '';
     document.getElementById('profile-phone').value = p.phone || '';
     document.getElementById('profile-entry-year').value = p.entry_year || '';
-    document.getElementById('profile-email').textContent = p.email || '-';
+    document.getElementById('profile-email').value = p.email || '';
     document.getElementById('profile-dept').textContent = `${p.department || '-'} • ${p.position || '-'}`;
     updateProfileAvatarPreview(p.avatar, p.name);
     state.profileAvatarData = p.avatar || '';
@@ -2049,6 +2066,7 @@ document.getElementById('form-profile').addEventListener('submit', async e => {
   const payload = {
     nip: document.getElementById('profile-nip').value,
     name: document.getElementById('profile-name').value,
+    email: document.getElementById('profile-email').value,
     phone: document.getElementById('profile-phone').value,
     entry_year: document.getElementById('profile-entry-year').value
   };
@@ -2066,10 +2084,14 @@ document.getElementById('form-profile').addEventListener('submit', async e => {
       // Sinkronkan user aktif + tampilan header
       const meRes = await fetch('/api/auth/me');
       const meData = await meRes.json();
-      if (meData.success && meData.user) {
-        state.currentUser = meData.user;
-        updateHeaderAvatar(meData.user);
-        document.getElementById('nav-user-name').textContent = meData.user.name;
+      const freshUser = (meData.success && meData.user) ? meData.user : data.profile;
+      if (freshUser) {
+        state.currentUser = freshUser;
+        updateHeaderAvatar(freshUser);
+        document.getElementById('nav-user-name').textContent = freshUser.name;
+        // Simpan ke cache lokal supaya saat web dibuka lagi (atau di device lain)
+        // yang tampil tetap data terbaru, bukan data lama/default.
+        saveSessionToStorage(freshUser, state.officeSettings);
       }
       closeProfileModal();
     } else {

@@ -973,16 +973,16 @@
           </div>
         </div>
 
+        <!-- Email (bisa diubah) -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Email</label>
+          <input type="email" id="profile-email" required placeholder="nama@sekolah.sch.id" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500" />
+        </div>
+
         <!-- Info read-only -->
-        <div class="grid grid-cols-2 gap-3 text-xs">
-          <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
-            <div class="text-slate-400 font-semibold uppercase text-[10px] mb-0.5">Email</div>
-            <div class="font-bold text-slate-700 break-all" id="profile-email">-</div>
-          </div>
-          <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
-            <div class="text-slate-400 font-semibold uppercase text-[10px] mb-0.5">Kelas / Unit</div>
-            <div class="font-bold text-slate-700" id="profile-dept">-</div>
-          </div>
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs">
+          <div class="text-slate-400 font-semibold uppercase text-[10px] mb-0.5">Kelas / Unit</div>
+          <div class="font-bold text-slate-700" id="profile-dept">-</div>
         </div>
 
         <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow-md transition">
@@ -1086,7 +1086,7 @@
       <form id="form-save-employee" class="p-5 space-y-3">
         <input type="hidden" id="emp-form-id" value="" />
 
-        <div>
+        <div id="emp-form-nip-wrap">
           <label class="block text-xs font-bold text-slate-700 uppercase mb-1">NISN (Siswa) / NIP (Guru)</label>
           <input type="text" id="emp-form-nip" required placeholder="Contoh NISN: 0061234567" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-blue-500" />
         </div>
@@ -1138,9 +1138,12 @@
           </div>
         </div>
 
-        <div id="emp-form-child-wrap" class="hidden">
-          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">NISN Anak (Wajib untuk Orang Tua)</label>
-          <input type="text" id="emp-form-child-nip" placeholder="NISN anak agar akun ini bisa memantau" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-purple-500" />
+        <div id="emp-form-child-wrap" class="hidden p-3 bg-purple-50 border border-purple-100 rounded-xl">
+          <label class="block text-xs font-bold text-purple-800 uppercase mb-1">NISN Anak (Wajib untuk Orang Tua)</label>
+          <input type="text" id="emp-form-child-nip" placeholder="Contoh NISN: 0061234567" class="w-full px-3 py-2 bg-white border border-purple-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-purple-500" />
+          <p class="mt-1.5 text-[11px] text-purple-700 leading-snug">
+            Cukup masukkan NISN anak yang sudah terdaftar sebagai siswa — akun orang tua ini akan otomatis terhubung dan bisa memantau absen anak. NISN/NIP milik orang tua sendiri tidak perlu diisi (dibuat otomatis).
+          </p>
         </div>
 
         <div class="pt-3 flex space-x-2">

@@ -304,6 +304,139 @@ async function runAdvancedTests() {
   assert.strictEqual(forbidden.statusCode, 403);
   console.log('✓ Advanced 12: Parent cannot access other children history (403)');
 
+  // 12b. Akun orang tua KEDUA: NISN anak diketik di kolom NISN/NIP.
+  // Sebelumnya ini ditolak dengan pesan "NISN / NIP sudah terdaftar", padahal
+  // yang diisi adalah NISN anak (untuk menautkan akun orang tua ke anaknya).
+  const parentViaNisn = await request(
+    {
+      hostname: 'localhost',
+      port: TEST_PORT,
+      path: '/api/employees',
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` }
+    },
+    {
+      nip: RIAN_NIP, // admin menaruh NISN anak di kolom NISN/NIP
+      name: 'Ibu Rian',
+      email: `ortu2.rian.${uniq}@sekolah.sch.id`,
+      password: 'ortu12345',
+      department: 'Wali Murid',
+      position: 'Orang Tua / Wali',
+      phone: '081200011133',
+      role: 'parent'
+    }
+  );
+  assert.strictEqual(parentViaNisn.statusCode, 200, JSON.stringify(parentViaNisn.bodyJson));
+  assert.ok(parentViaNisn.bodyJson.employee.nip.startsWith('ortu'), 'NISN anak tidak boleh dipakai jadi username orang tua');
+  assert.notStrictEqual(parentViaNisn.bodyJson.employee.nip, RIAN_NIP);
+
+  const parent2Login = await request(
+    { hostname: 'localhost', port: TEST_PORT, path: '/api/auth/login', method: 'POST' },
+    { email: `ortu2.rian.${uniq}@sekolah.sch.id`, password: 'ortu12345' }
+  );
+  assert.strictEqual(parent2Login.statusCode, 200);
+
+  const parent2Children = await request({
+    hostname: 'localhost',
+    port: TEST_PORT,
+    path: '/api/parent/children',
+    method: 'GET',
+    headers: { Authorization: `Bearer ${parent2Login.bodyJson.token}` }
+  });
+  assert.strictEqual(parent2Children.bodyJson.children.length, 1, 'akun orang tua harus otomatis terhubung ke anaknya');
+  assert.strictEqual(parent2Children.bodyJson.children[0].name, 'Rian Pratama');
+  console.log('✓ Advanced 12b: Parent created from child NISN in NIP field -> auto username + linked to child');
+
+  // 12c. NISN anak yang tidak terdaftar harus memberi pesan yang jelas
+  const wrongChild = await request(
+    {
+      hostname: 'localhost',
+      port: TEST_PORT,
+      path: '/api/employees',
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` }
+    },
+    {
+      name: 'Bapak Salah',
+      email: `ortu.salah.${uniq}@sekolah.sch.id`,
+      password: 'ortu12345',
+      department: 'Wali Murid',
+      position: 'Orang Tua / Wali',
+      role: 'parent',
+      child_nip: '9999' + uniq
+    }
+  );
+  assert.strictEqual(wrongChild.statusCode, 400, JSON.stringify(wrongChild.bodyJson));
+  assert.ok(wrongChild.bodyJson.error.includes('tidak ditemukan'), 'pesan harus menjelaskan NISN anak tidak ditemukan');
+  console.log('✓ Advanced 12c: Unknown child NISN returns a clear error message');
+
+  // 12d. Simpan profil (NISN, email, no telp, tahun masuk) — harus tetap tersimpan,
+  // bukan balik ke default saat dibaca ulang dari server
+  const newNisn = '0088' + uniq;
+  const newEmail = `rian.baru.${uniq}@sekolah.sch.id`;
+  const newPhone = '0813777' + uniq.slice(-4);
+  const profileSave = await request(
+    {
+      hostname: 'localhost',
+      port: TEST_PORT,
+      path: '/api/profile',
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${rianToken}` }
+    },
+    { nip: newNisn, name: 'Rian Pratama', email: newEmail, phone: newPhone, entry_year: 2024 }
+  );
+  assert.strictEqual(profileSave.statusCode, 200, JSON.stringify(profileSave.bodyJson));
+
+  const profileReload = await request({
+    hostname: 'localhost',
+    port: TEST_PORT,
+    path: '/api/auth/me',
+    method: 'GET',
+    headers: { Authorization: `Bearer ${rianToken}` }
+  });
+  assert.strictEqual(profileReload.bodyJson.user.nip, newNisn);
+  assert.strictEqual(profileReload.bodyJson.user.email, newEmail);
+  assert.strictEqual(profileReload.bodyJson.user.phone, newPhone);
+  console.log('✓ Advanced 12d: Profile changes (NISN, email, phone) persist and read back correctly');
+
+  // 12e. NISN / email yang sudah dipakai akun lain harus ditolak
+  const dupNisn = await request(
+    {
+      hostname: 'localhost',
+      port: TEST_PORT,
+      path: '/api/profile',
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${rianToken}` }
+    },
+    { nip: 'agil' }
+  );
+  assert.strictEqual(dupNisn.statusCode, 400, JSON.stringify(dupNisn.bodyJson));
+
+  const dupEmail = await request(
+    {
+      hostname: 'localhost',
+      port: TEST_PORT,
+      path: '/api/profile',
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${rianToken}` }
+    },
+    { email: 'agil@sekolah.sch.id' }
+  );
+  assert.strictEqual(dupEmail.statusCode, 400, JSON.stringify(dupEmail.bodyJson));
+  console.log('✓ Advanced 12e: Duplicate NISN & email rejected');
+
+  // Bersihkan akun orang tua kedua
+  const parent2Delete = await request(
+    {
+      hostname: 'localhost',
+      port: TEST_PORT,
+      path: '/api/employees/' + parentViaNisn.bodyJson.employee.id,
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${adminToken}` }
+    }
+  );
+  assert.strictEqual(parent2Delete.statusCode, 200);
+
   // 12. Bersihkan akun orang tua uji coba
   const parentDelete = await request(
     {
