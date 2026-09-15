@@ -2047,6 +2047,7 @@ document.getElementById('btn-remove-avatar').addEventListener('click', () => {
 document.getElementById('form-profile').addEventListener('submit', async e => {
   e.preventDefault();
   const payload = {
+    nip: document.getElementById('profile-nip').value,
     name: document.getElementById('profile-name').value,
     phone: document.getElementById('profile-phone').value,
     entry_year: document.getElementById('profile-entry-year').value

@@ -24,7 +24,23 @@ function handleProfileRoutes(req, res, url, user) {
     const target = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
     if (!target) return res.json({ error: 'User tidak ditemukan' }, 404);
 
-    const { name, phone, entry_year, avatar } = req.body || {};
+    const { name, phone, entry_year, avatar, nip } = req.body || {};
+
+    // Validasi NISN/NIP baru: unik (kecuali milik sendiri)
+    let newNip = target.nip;
+    if (nip !== undefined) {
+      const candidate = String(nip).trim();
+      if (!candidate) {
+        return res.json({ error: 'NISN/NIP tidak boleh kosong.' }, 400);
+      }
+      if (candidate !== target.nip) {
+        const clash = db.prepare('SELECT id FROM users WHERE nip = ? AND id != ?').get(candidate, user.id);
+        if (clash) {
+          return res.json({ error: 'NISN/NIP sudah dipakai akun lain.' }, 400);
+        }
+        newNip = candidate;
+      }
+    }
 
     // Validasi avatar: harus data URL gambar bila dikirim
     let newAvatar = target.avatar;
@@ -43,9 +59,10 @@ function handleProfileRoutes(req, res, url, user) {
 
     db.prepare(`
       UPDATE users
-      SET name = ?, phone = ?, entry_year = ?, avatar = ?
+      SET nip = ?, name = ?, phone = ?, entry_year = ?, avatar = ?
       WHERE id = ?
     `).run(
+      newNip,
       name && String(name).trim() ? String(name).trim() : target.name,
       phone != null ? String(phone).trim() : target.phone,
       entry_year != null && entry_year !== '' ? Number(entry_year) : (entry_year === '' ? null : target.entry_year),

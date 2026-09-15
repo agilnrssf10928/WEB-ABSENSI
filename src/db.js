@@ -29,6 +29,7 @@ let isPushing = false;
 let pushQueued = false;
 let lastKnownSha = null; // sha file terakhir yang diketahui dari GitHub
 let lastPersistError = null;
+let remoteDbHadData = false; // apakah DB remote berisi data saat terakhir dimuat
 
 function persistNow() {
   if (!sqlDb) return Promise.resolve();
@@ -48,10 +49,23 @@ function persistNow() {
   // Tanpa token: hanya simpan lokal (mode lama)
   if (!GITHUB_TOKEN) return Promise.resolve();
 
+  // Pengaman: jangan pernah menimpa database remote dengan database yang
+  // kosong/ter-reset (misalnya remote sempat gagal diambil saat init).
+  // Tanpa ini, satu request "sial" bisa menghapus SEMUA akun & pengaturan.
+  let userCount = 0;
+  try {
+    userCount = sqlDb.exec('SELECT COUNT(*) FROM users')[0].values[0][0];
+  } catch (_) {}
+  if (userCount === 0 && remoteDbHadData) {
+    console.error('DB: TIDAK push ke GitHub — database lokal kosong padahal remote berisi data (cegah overwrite).');
+    lastPersistError = 'skipped: empty DB guard';
+    return Promise.resolve();
+  }
+
   return pushToGithub(data);
 }
 
-async function pushToGithub(data) {
+async function pushToGithub(data, retry = false) {
   if (isPushing) { pushQueued = true; return; }
   isPushing = true;
   try {
@@ -86,10 +100,28 @@ async function pushToGithub(data) {
       if (meta && meta.content && meta.content.sha) lastKnownSha = meta.content.sha;
       lastPersistError = null;
     } else if (res.status === 409) {
-      // Konflik: muat ulang versi remote agar perubahan berikutnya tidak korup
-      console.error('DB push conflict (409) — akan muat ulang versi remote di siklus berikutnya.');
+      // Konflik: coba ambil ulang sha terbaru lalu push SEKALI lagi dengan data
+      // terbaru, supaya perubahan tidak hilang (sebelumnya hanya menandai error
+      // dan menunggu siklus berikutnya — di serverless siklus itu tidak dijamin ada).
       lastKnownSha = null;
       lastPersistError = 'conflict';
+      console.error('DB push conflict (409) — mencoba sekali lagi dengan sha terbaru...');
+      if (retry) {
+        lastPersistError = 'conflict (gagal setelah 1x retry)';
+        console.error('DB push conflict lagi (409) — akan muat ulang versi remote di siklus berikutnya.');
+      } else {
+        try {
+          const head = await fetch(REMOTE_API_URL, {
+            headers: { 'Authorization': `Bearer ${GITHUB_TOKEN}`, 'User-Agent': 'web-absensi' }
+          });
+          if (head.ok) {
+            const meta = await head.json();
+            if (meta && meta.sha) lastKnownSha = meta.sha;
+          }
+        } catch (_) { /* pakai sha cache kalau ada */ }
+        isPushing = false;
+        return pushToGithub(data, true); // retry dengan sha terbaru
+      }
     } else {
       const txt = await res.text().catch(() => '');
       lastPersistError = `HTTP ${res.status}: ${txt.slice(0, 200)}`;
@@ -108,6 +140,11 @@ async function pushToGithub(data) {
 }
 
 function schedulePush(delayMs = 3000) {
+  // Di Vercel, serverless function bisa "dibekukan" kapan saja setelah respons
+  // terkirim, sehingga setTimeout debounce 3 detik sering tidak pernah jalan —
+  // perubahan terakhir (login, settings, profil, absen) bisa hilang. Solusinya:
+  // push langsung (flush) di Vercel, debounce panjang hanya untuk mode lokal.
+  if (isVercel) delayMs = 0;
   if (pushTimer) clearTimeout(pushTimer);
   pushTimer = setTimeout(() => {
     pushTimer = null;
@@ -243,6 +280,34 @@ function initDb() {
 }
 
 async function fetchRemoteDb() {
+  // Utamakan GitHub Contents API + token (bisa baca repo private, tidak kena cache CDN raw.githubusercontent)
+  if (GITHUB_TOKEN) {
+    try {
+      const res = await fetch(REMOTE_API_URL, {
+        headers: {
+          'Authorization': `Bearer ${GITHUB_TOKEN}`,
+          'User-Agent': 'web-absensi',
+          'Cache-Control': 'no-cache'
+        }
+      });
+      if (res.ok) {
+        const meta = await res.json();
+        if (meta && meta.content) {
+          const buf = Buffer.from(meta.content, 'base64');
+          if (buf.length >= 16 && buf.slice(0, 6).toString('utf8') === 'SQLite') {
+            lastKnownSha = meta.sha || null;
+            return buf;
+          }
+        }
+      } else {
+        console.error('DB: fetch via API GitHub gagal (HTTP ' + res.status + '), coba raw URL...');
+      }
+    } catch (e) {
+      console.error('DB: fetch via API GitHub error (' + e.message + '), coba raw URL...');
+    }
+  }
+
+  // Fallback: raw URL (hanya jalan kalau repo database public)
   const res = await fetch(REMOTE_RAW_URL, { headers: { 'User-Agent': 'web-absensi', 'Cache-Control': 'no-cache' } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const buf = Buffer.from(await res.arrayBuffer());
@@ -304,6 +369,11 @@ function loadDb() {
       }
 
       initDb();
+
+      // Catat apakah remote berisi data (untuk pengaman anti-overwrite)
+      try {
+        remoteDbHadData = sqlDb.exec('SELECT COUNT(*) FROM users')[0].values[0][0] > 0;
+      } catch (_) {}
 
       // Dapatkan sha file remote untuk pembaruan berikutnya
       if (GITHUB_TOKEN) {

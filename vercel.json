@@ -1,17 +1,11 @@
 {
   "version": 2,
-  "buildCommand": "npm install",
-  "installCommand": "npm install",
   "builds": [
     {
       "src": "api/index.js",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": [
-          "database.sqlite",
-          "node_modules/sql.js/dist/sql-wasm.wasm"
-        ],
-        "maxLambdaSize": "50mb"
+        "includeFiles": "node_modules/sql.js/dist/sql-wasm.wasm"
       }
     },
     {
@@ -21,34 +15,28 @@
   ],
   "routes": [
     {
+      "src": "/uploads/(.*)",
+      "dest": "/api/index.js"
+    },
+    {
       "src": "/api/(.*)",
-      "dest": "api/index.js",
-      "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+      "dest": "/api/index.js"
     },
     {
       "src": "/js/(.*)",
-      "dest": "public/js/$1"
+      "dest": "/public/js/$1"
     },
     {
       "src": "/css/(.*)",
-      "dest": "public/css/$1"
-    },
-    {
-      "src": "/images/(.*)",
-      "dest": "public/images/$1"
+      "dest": "/public/css/$1"
     },
     {
       "src": "/favicon.ico",
-      "dest": "public/favicon.ico"
+      "dest": "/public/favicon.ico"
     },
     {
       "src": "/(.*)",
-      "dest": "public/index.html"
+      "dest": "/public/index.html"
     }
-  ],
-  "env": {
-    "SESSION_SECRET": "@session_secret",
-    "NODE_ENV": "production",
-    "DATABASE_URL": "./database.sqlite"
-  }
+  ]
 }
