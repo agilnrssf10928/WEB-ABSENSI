@@ -20,6 +20,46 @@ const state = {
 };
 
 // ========================================================
+// SESSION PERSISTENCE HELPERS (Session Fix)
+// ========================================================
+
+function saveSessionToStorage(user, settings) {
+  try {
+    if (user) {
+      localStorage.setItem('__session_user', JSON.stringify(user));
+      console.log('✅ Session saved to localStorage');
+    }
+    if (settings) {
+      localStorage.setItem('__session_settings', JSON.stringify(settings));
+    }
+  } catch (e) {
+    console.warn('⚠️ localStorage quota exceeded atau disabled:', e.message);
+  }
+}
+
+function loadSessionFromStorage() {
+  try {
+    const user = localStorage.getItem('__session_user');
+    const settings = localStorage.getItem('__session_settings');
+    return {
+      user: user ? JSON.parse(user) : null,
+      settings: settings ? JSON.parse(settings) : null
+    };
+  } catch (e) {
+    console.warn('⚠️ Error loading from localStorage:', e.message);
+    return { user: null, settings: null };
+  }
+}
+
+function clearSessionStorage() {
+  try {
+    localStorage.removeItem('__session_user');
+    localStorage.removeItem('__session_settings');
+    console.log('🗑️ Session cleared from localStorage');
+  } catch (e) {}
+}
+
+// ========================================================
 // UTILS & HELPERS
 // ========================================================
 
@@ -105,14 +145,45 @@ async function checkAuth() {
   try {
     const res = await fetch('/api/auth/me');
     const data = await res.json();
+    
     if (data.success && data.user) {
+      // ✅ Server session valid
       state.currentUser = data.user;
+      if (data.settings) {
+        state.officeSettings = data.settings;
+      }
+      saveSessionToStorage(data.user, data.settings);
+      console.log('✅ checkAuth: Server session OK');
       renderApp();
     } else {
-      showLoginView();
+      // ⚠️ Server session expired, fallback ke cache
+      console.log('⚠️ checkAuth: Server session invalid, trying localStorage cache');
+      const cached = loadSessionFromStorage();
+      
+      if (cached.user) {
+        console.log('✅ checkAuth: Using cached session from localStorage');
+        state.currentUser = cached.user;
+        state.officeSettings = cached.settings || state.officeSettings;
+        renderApp();
+      } else {
+        console.log('❌ checkAuth: No valid session found');
+        showLoginView();
+      }
     }
   } catch (err) {
-    showLoginView();
+    // 🌐 Network error, fallback ke cache
+    console.warn('⚠️ checkAuth: Network error, trying localStorage cache:', err.message);
+    const cached = loadSessionFromStorage();
+    
+    if (cached.user) {
+      console.log('✅ checkAuth: Using cached session (offline mode)');
+      state.currentUser = cached.user;
+      state.officeSettings = cached.settings || state.officeSettings;
+      renderApp();
+    } else {
+      console.log('❌ checkAuth: No cache available');
+      showLoginView();
+    }
   }
 }
 
@@ -223,6 +294,15 @@ document.getElementById('form-login').addEventListener('submit', async e => {
       showToast('SELAMAT ANDA BERHASIL LOGIN KE WEB ABSENSI SEKOLAH', 'success');
       showLoginSuccessBanner();
       state.currentUser = data.user;
+      
+      // 💾 Simpan settings juga dari server
+      if (data.settings) {
+        state.officeSettings = data.settings;
+      }
+      
+      // 💾 Save to localStorage
+      saveSessionToStorage(data.user, data.settings);
+      
       renderApp();
     } else {
       showToast(data.error || 'Login gagal, periksa username & password', 'error');
@@ -239,8 +319,11 @@ document.getElementById('form-login').addEventListener('submit', async e => {
 document.getElementById('btn-logout').addEventListener('click', async () => {
   try {
     await fetch('/api/auth/logout', { method: 'POST' });
+    clearSessionStorage(); // 🗑️ Clear cache
     showToast('Anda telah keluar.', 'info');
-  } catch (e) {}
+  } catch (e) {
+    clearSessionStorage();
+  }
   showLoginView();
 });
 
